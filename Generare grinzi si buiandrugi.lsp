@@ -619,8 +619,8 @@
                        (list (gb:o (gb:linie gb:*l-cote* (list (+ xr 367.0) yl) (list (+ xr 513.0) yl)))
                              pl (gb:hasura ms pl "SOLID" 1.0 gb:*l-cote*)
                              (gb:o (gb:linie gb:*l-cote* (list x0 (+ yl 68.5)) (list (+ x0 518.0) (+ yl 68.5))))))))
-  (setq tsus (gb:o (gb:text gb:*l-cote* (list (+ x0 213.5) (+ yt 107.4)) 125.0 (gb:fmt-cota top) gb:*st-text* "MC" nil))
-        tjos (gb:o (gb:text gb:*l-cote* (list (+ x0 213.5) (+ (- yt h) 107.4)) 125.0
+  (setq tsus (gb:o (gb:text gb:*l-cote* (list (+ x0 209.9) (+ yt 175.9)) 125.0 (gb:fmt-cota top) gb:*st-text* "MC" nil))
+        tjos (gb:o (gb:text gb:*l-cote* (list (+ x0 209.9) (+ (- yt h) 175.9)) 125.0
                             (gb:fmt-cota (- top (/ h 1000.0))) gb:*st-text* "MC" nil)))
   ;; cota de jos = cota de sus - cota de inaltime, ca FIELD (ca in desenele
   ;; facute manual): se actualizeaza daca se schimba cota de sus sau inaltimea
@@ -677,7 +677,7 @@
   (setq pct (vl-remove-if '(lambda (u) (or (< u (- ua gb:*tol*)) (> u (+ ub gb:*tol*)))) (gb:unic-num pct)))
   (setq a (car pct))
   (foreach b (cdr pct)
-    (gb:cota ms (list (gb:x a) oy) (list (gb:x b) oy) (list (gb:x a) (+ oy 300.0)) 0.0)
+    (gb:cota ms (list (gb:x a) oy) (list (gb:x b) oy) (list (gb:x a) (+ oy 223.8)) 0.0)
     (setq a b))
   ;; sectiunea "xx" sta la o treime din ultima deschidere, de la reazemul
   ;; din dreapta; daca ar cadea peste textul unei zone, se muta ea (textul
@@ -701,10 +701,13 @@
   ;; axele
   (foreach ax (gb:g 'axes e)
     (setq x (gb:x (car ax)))
-    (entmakex (list '(0 . "LINE") (cons 8 gb:*l-axe-d*) '(48 . 20.0)
-                    (list 10 x (+ oy 520.0) 0.0) (list 11 x (- yb 855.0) 0.0)))
-    (entmakex (list '(0 . "CIRCLE") (cons 8 gb:*l-axe-d*) (list 10 x (+ oy 639.4) 0.0) '(40 . 119.2)))
-    (gb:text gb:*l-axe-d* (list x (+ oy 639.4)) 140.0 (cadr ax) gb:*st-axe* "MC" nil))
+    ;; doar linia e linie-punct; cercul continuu si numele alb
+    (entmakex (append (list '(0 . "LINE") (cons 8 gb:*l-axe-d*))
+                      (if (tblsearch "LTYPE" "ACAD_ISO10W100") '((6 . "ACAD_ISO10W100")))
+                      (list '(48 . 20.0) (list 10 x (+ oy 520.0) 0.0) (list 11 x (- yb 855.0) 0.0))))
+    (entmakex (list '(0 . "CIRCLE") (cons 8 gb:*l-axe-d*) '(6 . "Continuous") '(62 . 7)
+                    (list 10 x (+ oy 639.4) 0.0) '(40 . 119.2)))
+    (gb:text gb:*l-axe-d* (list x (+ oy 639.4)) 140.0 (cadr ax) gb:*st-axe* "MC" 7))
   ;; cota de inaltime si cotele de nivel
   (gb:cote-nivel doc ms (+ ox lt) oy h top)
   ;; sectiunea "xx"
