@@ -41,8 +41,8 @@
 ;;   - axele care trec prin reazeme, cu numele lor
 ;;   - cota de inaltime si cotele de nivel (grup pe "Cote"): sus cota
 ;;     data la pornire, jos un FIELD = cota de sus - cota de inaltime
-;;   - sectiunea "xx" (grup pe "Sectiuni grinzi"), la o treime din
-;;     ultima deschidere fata de reazemul din dreapta; textul "xx" are
+;;   - sectiunea "xx" (grup pe "Sectiuni grinzi"), in prima treime a
+;;     primei deschideri, de la reazemul din stanga; textul "xx" are
 ;;     punctul de insertie in dreapta jos
 ;;   - deasupra: "G1 30x40 1buc." si "Scara 1:50" ("Bucati element");
 ;;     elementele identice (acelasi nume, aceeasi geometrie) se deseneaza
@@ -624,8 +624,8 @@
                        (list (gb:o (gb:linie gb:*l-cote* (list (+ xr 367.0) yl) (list (+ xr 513.0) yl)))
                              pl (gb:hasura ms pl "SOLID" 1.0 gb:*l-cote*)
                              (gb:o (gb:linie gb:*l-cote* (list x0 (+ yl 68.5)) (list (+ x0 518.0) (+ yl 68.5))))))))
-  (setq tsus (gb:o (gb:text gb:*l-cote* (list (+ x0 209.9) (+ yt 175.9)) 125.0 (gb:fmt-cota top) gb:*st-text* "MC" nil))
-        tjos (gb:o (gb:text gb:*l-cote* (list (+ x0 209.9) (+ (- yt h) 175.9)) 125.0
+  (setq tsus (gb:o (gb:text gb:*l-cote* (list (+ x0 209.9) (+ yt 179.4)) 125.0 (gb:fmt-cota top) gb:*st-text* "MC" nil))
+        tjos (gb:o (gb:text gb:*l-cote* (list (+ x0 209.9) (+ (- yt h) 179.4)) 125.0
                             (gb:fmt-cota (- top (/ h 1000.0))) gb:*st-text* "MC" nil)))
   ;; cota de jos = cota de sus - cota de inaltime, ca FIELD (ca in desenele
   ;; facute manual): se actualizeaza daca se schimba cota de sus sau inaltimea
@@ -648,7 +648,7 @@
   (setq d 25.0)
   (while (and (null r) (< d (- (cadr s) (car s))))
     (foreach x (list (- xs d) (+ xs d))
-      (if (and (null r) (>= x (+ (car s) 220.0)) (<= x (- (cadr s) 20.0)) (not (gb:xx-loveste x txs)))
+      (if (and (null r) (>= x (+ (car s) 220.0)) (<= x (cadr s)) (not (gb:xx-loveste x txs)))
         (setq r x)))
     (setq d (+ d 25.0)))
   (if r r xs)
@@ -682,16 +682,18 @@
   (setq pct (vl-remove-if '(lambda (u) (or (< u (- ua gb:*tol*)) (> u (+ ub gb:*tol*)))) (gb:unic-num pct)))
   (setq a (car pct))
   (foreach b (cdr pct)
-    (gb:cota ms (list (gb:x a) oy) (list (gb:x b) oy) (list (gb:x a) (+ oy 223.8)) 0.0)
+    (gb:cota ms (list (gb:x a) oy) (list (gb:x b) oy) (list (gb:x a) (+ oy 300.0)) 0.0)
     (setq a b))
-  ;; sectiunea "xx" sta la o treime din ultima deschidere, de la reazemul
-  ;; din dreapta; daca ar cadea peste textul unei zone, se muta ea (textul
-  ;; ramane la mijlocul cotei)
-  (setq s (last desc) xs (if s (- (cadr s) (/ (- (cadr s) (car s)) 3.0))))
+  ;; sectiunea "xx" sta in prima treime a primei deschideri (de la reazemul
+  ;; din stanga), spre capatul treimii; daca ar cadea peste textul unei
+  ;; zone, se muta ea in treime (textul ramane la mijlocul cotei)
+  (setq s (car desc))
+  (if s (setq s (list (car s) (+ (car s) (/ (- (cadr s) (car s)) 3.0)))
+              xs (- (cadr s) 50.0)))
   (setq txs (mapcar '(lambda (z) (/ (+ (car z) (cadr z)) 2.0)) zones))
   (if (and xs (gb:xx-loveste xs txs)) (setq xs (gb:xx-liber xs s txs)))
   (mapcar '(lambda (z xm)
-             (gb:text gb:*l-elem* (list (gb:x xm) (+ oy 83.6)) 90.0
+             (gb:text gb:*l-elem* (list (gb:x xm) (+ oy 148.3)) 90.0
                       (strcat "etr. " gb:*diam* "/" (itoa (caddr z))) gb:*st-text* "BC" nil))
           zones txs)
   ;; lantul de jos: reazemele si deschiderile

@@ -57,9 +57,9 @@ Toata generarea se anuleaza cu un singur `U`.
 - axele care trec prin reazeme (stalpi / grinda de reazem), cu numele lor; unde nu trece nicio axa, nu se pune
 - grupul de cote de nivel (layer `Cote`): cota de inaltime, cota de sus si cota de jos ca FIELD
   (cota de sus - cota de inaltime), ca in desenele facute manual
-- sectiunea `xx` (grup pe `Sectiuni grinzi`, textele cu punctul de insertie in dreapta jos), la o treime din
-  ultima deschidere fata de reazemul din dreapta; daca ar cadea peste textul etrierilor, se muta sectiunea
-  in cel mai apropiat loc liber (textul etrierilor ramane mereu la mijlocul cotei lui)
+- sectiunea `xx` (grup pe `Sectiuni grinzi`, textele cu punctul de insertie in dreapta jos), in prima treime a
+  primei deschideri, de la reazemul din stanga; daca ar cadea peste textul etrierilor, se muta in aceeasi treime
+  (textul etrierilor ramane mereu la mijlocul cotei lui)
 - deasupra, pe `Bucati element`: `G1 30x40 1buc.` si `Scara 1:50`. Elementele identice (acelasi nume,
   aceeasi geometrie) se deseneaza o singura data, cu numarul de bucati.
 
