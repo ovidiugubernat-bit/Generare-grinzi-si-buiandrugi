@@ -601,6 +601,11 @@
   (vla-appenditems r arr)
   r
 )
+;; stilul de cota curent (DIMSTYLE nu se poate schimba cu setvar)
+(defun gb:stil-cota (doc nume)
+  (if (tblsearch "DIMSTYLE" nume)
+    (vl-catch-all-apply 'vla-put-activedimstyle (list doc (vla-item (vla-get-dimstyles doc) nume))))
+)
 (defun gb:id (doc o) (vla-getobjectidstring (vla-get-utility doc) o :vlax-false))
 
 ;; reazemul de sub element: stalp (hasura ANSI31) sau caramida (AR-B88)
@@ -753,7 +758,7 @@
   (setq doc (vla-get-activedocument (vlax-get-acad-object))
         ms (vla-get-modelspace doc))
   (defun *error* (msg)
-    (if ds0 (vl-catch-all-apply 'setvar (list "DIMSTYLE" ds0)))
+    (if ds0 (gb:stil-cota doc ds0))
     (vla-endundomark doc)
     (if (and msg (not (wcmatch (strcase msg) "*CANCEL*,*QUIT*,*EXIT*")))
       (princ (strcat "\nEroare: " msg)))
@@ -819,15 +824,14 @@
             (progn
               (vla-startundomark doc)
               (setq ds0 (getvar "DIMSTYLE"))
-              (if (tblsearch "DIMSTYLE" gb:*ds*)
-                (vl-catch-all-apply 'vla-put-activedimstyle (list doc (vla-item (vla-get-dimstyles doc) gb:*ds*))))
+              (gb:stil-cota doc gb:*ds*)
               (gb:straturi)
               (setq p (trans p 1 0) ox (car p) oy (cadr p) n 0)
               (foreach g grupe
                 (setq ox (+ ox (gb:deseneaza doc ms (cadr g) (caddr g) top ox oy) gb:*spatiu*) n (1+ n)))
               (setq gb:*err* (reverse gb:*err*))
               (gb:marcheaza-erori gb:*err*)
-              (vl-catch-all-apply 'setvar (list "DIMSTYLE" ds0))
+              (gb:stil-cota doc ds0)
               (setq ds0 nil)
               (vla-endundomark doc)
               (setq gata T)))
