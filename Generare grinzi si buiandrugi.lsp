@@ -65,7 +65,7 @@
 (setq gb:*pas-cap*  100.0)   ; pasul etrierilor la capete, grinzi (mm)
 (setq gb:*pas-mij*  150.0)   ; pasul etrierilor in camp / la buiandrugi (mm)
 (setq gb:*etr-dist* 50.0)    ; primul etrier de la capatul liber al buiandrugului (mm)
-(setq gb:*lat-etr*  260.0)   ; jumatate din latimea textului "etr. %%C8/15" (mm)
+(setq gb:*lat-etr*  280.0)   ; jumatate din latimea textului "etr. %%C8/15" (mm)
 (setq gb:*diam*     "%%C8")
 (setq gb:*spatiu*   1800.0)  ; distanta intre desfasurate (mm)
 (setq gb:*sect-max* 1500.0)  ; cat de departe de element poate sta sectiunea de cofraj (mm)
@@ -633,16 +633,8 @@
 )
 
 ;; o desfasurata; ox = marginea stanga, oy = fata de sus. Intoarce lungimea.
-;; centrul textului unei zone de etrieri: la mijlocul zonei, mutat daca ar
-;; ajunge peste sectiunea "xx" (linia la xs, textul "xx" la stanga ei)
-(defun gb:x-text-zona (z xs / xm)
-  (setq xm (/ (+ (car z) (cadr z)) 2.0))
-  (if (and xs (< (- xm gb:*lat-etr*) (+ xs 20.0)) (> (+ xm gb:*lat-etr*) (- xs 220.0)))
-    (cond
-      ((>= (- xs 220.0 gb:*lat-etr*) (+ (car z) gb:*lat-etr*)) (setq xm (- xs 220.0 gb:*lat-etr*)))
-      ((<= (+ xs 20.0 gb:*lat-etr*) (- (cadr z) gb:*lat-etr*)) (setq xm (+ xs 20.0 gb:*lat-etr*)))))
-  xm
-)
+;; textul unei zone de etrieri sta mereu la mijlocul cotei zonei; sectiunea
+;; "xx" (linia la xs, textul "xx" la stanga ei) se muta daca ar cadea peste el
 (defun gb:xx-loveste (xs txs)
   (vl-some '(lambda (xm) (and (< (- xm gb:*lat-etr*) (+ xs 20.0)) (> (+ xm gb:*lat-etr*) (- xs 220.0)))) txs)
 )
@@ -688,9 +680,10 @@
     (gb:cota ms (list (gb:x a) oy) (list (gb:x b) oy) (list (gb:x a) (+ oy 300.0)) 0.0)
     (setq a b))
   ;; sectiunea "xx" sta la o treime din ultima deschidere, de la reazemul
-  ;; din dreapta; textul zonei se muta putin daca ar ajunge peste ea
+  ;; din dreapta; daca ar cadea peste textul unei zone, se muta ea (textul
+  ;; ramane la mijlocul cotei)
   (setq s (last desc) xs (if s (- (cadr s) (/ (- (cadr s) (car s)) 3.0))))
-  (setq txs (mapcar '(lambda (z) (gb:x-text-zona z xs)) zones))
+  (setq txs (mapcar '(lambda (z) (/ (+ (car z) (cadr z)) 2.0)) zones))
   (if (and xs (gb:xx-loveste xs txs)) (setq xs (gb:xx-liber xs s txs)))
   (mapcar '(lambda (z xm)
              (gb:text gb:*l-elem* (list (gb:x xm) (+ oy 83.6)) 90.0
