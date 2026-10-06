@@ -591,8 +591,24 @@
                               " diferite - verificati numerotarea axelor")))))))
 )
 
+;; un stalp din fasia elementului e, intre pozitia c (in afara elementului)
+;; si capatul cel mai apropiat al lui? Atunci sectiunea din c e a altui
+;; element din prelungire (de obicei o centura), nu a lui e.
+(defun gb:stalp-intre (e c / dr a b)
+  (setq dr (gb:g 'dir e))
+  (if (< c (gb:g 'lo e))
+    (setq a c b (gb:g 'lo e))
+    (setq a (gb:g 'hi e) b c))
+  (vl-some '(lambda (col / k)
+              (setq k (gb:cbox dr col))
+              (and (> (gb:suprap (cadr k) (cadddr k) (gb:g 'va e) (gb:g 'vb e)) gb:*tol*)
+                   (>= (car k) (- a gb:*tol*)) (<= (caddr k) (+ b gb:*tol*))))
+           gb:*col*)
+)
+
 ;; elementul caruia ii apartine o sectiune de cofraj (aceleasi doua fete,
-;; cel mai aproape de-a lungul lui); nil daca nu e niciunul
+;; cel mai aproape de-a lungul lui); nil daca nu e niciunul. O sectiune din
+;; afara elementului ii apartine numai daca nu e un stalp intre ele.
 (defun gb:proprietar (pts / best dr q vs us c dd)
   (foreach e gb:*el*
     (setq dr (gb:g 'dir e)
@@ -603,7 +619,9 @@
       (progn
         (setq c (/ (+ (apply 'min us) (apply 'max us)) 2.0)
               dd (max (- (gb:g 'lo e) c) 0.0 (- c (gb:g 'hi e))))
-        (if (and (<= dd gb:*sect-max*) (or (null best) (< dd (car best))))
+        (if (and (<= dd gb:*sect-max*)
+                 (or (<= dd gb:*tol*) (not (gb:stalp-intre e c)))
+                 (or (null best) (< dd (car best))))
           (setq best (list dd e))))))
   (cadr best)
 )
