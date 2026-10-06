@@ -61,8 +61,9 @@ Toata generarea se anuleaza cu un singur `U`.
   primei deschideri, de la reazemul din stanga; daca ar cadea peste textul etrierilor, se muta in aceeasi treime
   (textul etrierilor ramane mereu la mijlocul cotei lui)
 - armatura longitudinala, sub desfasurata, ca grupuri (ca la placi: bara cu ciocuri pe `FIER`, cotele ciocurilor si
-  a lungimii cu `Fier stalpi 50`, cercul marcii pe `0`, marca `y` pe `Otel marca` - se renumeroteaza -, diametrul pe
-  `Otel diametru`, `L=` ca FIELD pe `Otel lungime`); bara e cu 25 mm mai scurta la fiecare capat:
+  a lungimii cu `Fier stalpi 50`, tot pe `FIER`, cercul marcii pe `0`, marca `y` pe `Otel marca` - se renumeroteaza -, diametrul pe
+  `Otel diametru`, `L=` ca FIELD pe `Otel lungime`), cu eticheta la mijlocul barei si textul cotei lungimii intre
+  diametru si ciocul din dreapta; bara e cu 25 mm mai scurta la fiecare capat:
   - grinzi: un rand sus si unul jos, `3%%C16`, ciocuri de 25 cm
   - buiandrugi: doar jos, `3%%C12`, ciocuri de 30 cm (sus sunt barele centurii)
 - la buiandrugi, fierul de jos al centurii: o linie pe `FIER` sub cea de sus a carcasei, la inaltimea centurii minus

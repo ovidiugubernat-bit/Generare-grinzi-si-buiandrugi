@@ -722,11 +722,12 @@
 ;; L= ca FIELD legat de lungimea barei. vb = bara, cioc > 0 in sus, < 0 in jos.
 (defun gb:armatura (doc ms x1 x2 vb cioc diam cu / pl yc d1 d2 d3 cerc marca dt lung ut tp)
   (setq yc (+ vb cioc))
-  ;; textul cotei lungimii (ut) nu trebuie sa ajunga peste cerc si diametru:
-  ;; la elementele scurte cercul se muta spre stanga, apoi textul spre dreapta
-  (setq ut (/ (+ x1 x2) 2.0))
-  (if (< ut (+ cu 720.0)) (setq cu (max (+ x1 200.0) (min cu (- ut 720.0)))))
-  (if (and (< ut (+ cu 720.0)) (<= (+ cu 720.0) (- x2 210.0))) (setq ut (+ cu 720.0)))
+  ;; marca, diametrul si L= cam la mijlocul barei; textul cotei lungimii
+  ;; (ut) la mijlocul distantei dintre diametru si cota ciocului din dreapta,
+  ;; ca sa nu stea pe mijlocul barei (s-ar muta bara cu el); la barele
+  ;; scurte eticheta se muta spre stanga, ca sa ramana loc textului
+  (setq cu (max (+ x1 200.0) (min cu (- x2 870.0)))
+        ut (/ (+ cu 470.0 x2) 2.0))
   (setq pl (entmakex
              (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") (cons 8 gb:*l-fier*) '(100 . "AcDbPolyline")
                    '(90 . 4) '(70 . 0)
@@ -742,8 +743,9 @@
   (setq d1 (gb:cota-stil ms (list x1 vb) (list x1 yc) (list x1 yc) (/ pi 2.0) gb:*ds-fier*)
         d2 (gb:cota-stil ms (list x2 vb) (list x2 yc) (list x2 yc) (/ pi 2.0) gb:*ds-fier*)
         d3 (gb:cota-stil ms (list x1 vb) (list x2 vb) (list x2 vb) 0.0 gb:*ds-fier*))
-  (if (and (not (equal ut (/ (+ x1 x2) 2.0) 1.0))
-           (setq tp (vl-catch-all-apply 'vlax-get (list d3 'TextPosition)))
+  ;; cotele armaturii stau pe layerul FIER
+  (foreach d (list d1 d2 d3) (vla-put-layer d gb:*l-fier*))
+  (if (and (setq tp (vl-catch-all-apply 'vlax-get (list d3 'TextPosition)))
            (not (vl-catch-all-error-p tp)))
     (vl-catch-all-apply 'vlax-put (list d3 'TextPosition (list ut (cadr tp) (caddr tp)))))
   (gb:grup doc (append (mapcar 'gb:o (list pl cerc marca dt lung)) (list d1 d2 d3)))
@@ -850,7 +852,8 @@
   ;; armatura longitudinala: la grinzi un rand sus si unul jos (3%%C16),
   ;; la buiandrugi doar jos (3%%C12; sus sunt barele centurii); bara e cu
   ;; 25 mm mai scurta la fiecare capat; marca "y" se renumeroteaza
-  (setq cu (+ ox (/ lt 3.0)))
+  ;; centrul cercului marcii: eticheta (cerc, diametru, L=) centrata pe bara
+  (setq cu (+ ox (/ lt 2.0) -200.0))
   (if (= (gb:g 'tip e) "G")
     (progn
       (gb:armatura doc ms (+ ox gb:*acop*) (+ ox lt (- gb:*acop*)) (- yb 1085.0) (- gb:*cioc-g*) gb:*arm-g* cu)
