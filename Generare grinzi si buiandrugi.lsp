@@ -251,6 +251,7 @@
        (setq rot (rem (cdr (assoc 50 ed)) pi))
        (setq dr (if (or (< rot (/ pi 4.0)) (> rot (* 0.75 pi))) 0 1))
        (setq gb:*mk* (cons (list (cons 'tip (nth 0 nm)) (cons 'num (nth 1 nm)) (cons 'b (nth 2 nm))
+                                 (cons 'id (strcat (nth 0 nm) (itoa (nth 1 nm))))
                                  (cons 'h (nth 3 nm)) (cons 'name (nth 4 nm))
                                  (cons 'p (list (car p) (cadr p))) (cons 'dir dr))
                            gb:*mk*)))
@@ -307,10 +308,11 @@
            gb:*col*)
 )
 
-;; alt element (alt nume) are textul intre lo si hi, in fasia va-vb?
+;; alt element (alt numar: G1 si G2; G1 30x50 si G1 30x40 sunt acelasi
+;; element, cu sectiune variabila) are textul intre lo si hi, in fasia va-vb?
 (defun gb:alt-nume (dr mk lo hi va vb)
   (vl-some '(lambda (o / q)
-              (and (= (gb:g 'dir o) dr) (/= (gb:g 'name o) (gb:g 'name mk))
+              (and (= (gb:g 'dir o) dr) (/= (gb:g 'id o) (gb:g 'id mk))
                    (setq q (gb:uv dr (car (gb:g 'p o)) (cadr (gb:g 'p o))))
                    (<= (- lo gb:*tol*) (car q) (+ hi gb:*tol*))
                    (< va (cadr q) vb)))
@@ -421,6 +423,70 @@
 ;; =========================================================================
 ;; ETRIERI
 ;; =========================================================================
+;; tronsoanele de inaltime ale unei grinzi: textele cu acelasi numar (ex.
+;; "G1 30x50" si "G1 30x40") pe deschideri diferite dau sectiune variabila.
+;; 'tr = ((u1 u2 h) ...) de la ua la ub; treapta e la fata stalpului dinspre
+;; partea mai joasa (stalpul ramane la partea mai inalta). 'h = cea mai
+;; mare inaltime; numele devine "G1 30x50(30x40)".
+(defun gb:tronsoane (e / sups mks hs i a b q h tr st hu nm)
+  (setq sups (gb:g 'sups e)
+        mks (vl-remove-if-not
+              '(lambda (o / q)
+                 (and (= (gb:g 'id o) (gb:g 'id e)) (= (gb:g 'dir o) (gb:g 'dir e))
+                      (setq q (gb:uv (gb:g 'dir e) (car (gb:g 'p o)) (cadr (gb:g 'p o))))
+                      (< (gb:g 'va e) (cadr q) (gb:g 'vb e))
+                      (<= (- (gb:g 'ua e) gb:*tol*) (car q) (+ (gb:g 'ub e) gb:*tol*))))
+              gb:*mk*))
+  ;; inaltimea fiecarei deschideri, dupa textul din ea
+  (setq i 0)
+  (repeat (1- (length sups))
+    (setq a (cadr (nth i sups)) b (caddr (nth (1+ i) sups)) h nil)
+    (foreach o mks
+      (setq q (car (gb:uv (gb:g 'dir e) (car (gb:g 'p o)) (cadr (gb:g 'p o)))))
+      (if (and (null h) (<= (- a gb:*tol*) q (+ b gb:*tol*))) (setq h (gb:g 'h o))))
+    (setq hs (append hs (list h)) i (1+ i)))
+  ;; deschiderile fara text iau inaltimea vecinei
+  (setq h nil hs (mapcar '(lambda (x) (if x (setq h x) h)) hs))
+  (setq h nil hs (reverse (mapcar '(lambda (x) (if x (setq h x) h)) (reverse hs))))
+  (setq hs (mapcar '(lambda (x) (if x x (gb:g 'h e))) hs))
+  (if (null hs) (setq hs (list (gb:g 'h e))))
+  (setq st (gb:g 'ua e) i 0)
+  (repeat (1- (length hs))
+    (if (not (equal (nth i hs) (nth (1+ i) hs) 0.1))
+      (progn
+        (setq b (nth (1+ i) sups)
+              a (if (> (nth i hs) (nth (1+ i) hs)) (caddr b) (cadr b))
+              tr (append tr (list (list st a (nth i hs))))
+              st a)))
+    (setq i (1+ i)))
+  (setq tr (append tr (list (list st (gb:g 'ub e) (last hs)))))
+  (if (> (length tr) 1)
+    (progn
+      (foreach x tr (if (not (member (caddr x) hu)) (setq hu (append hu (list (caddr x))))))
+      (setq nm (strcat (gb:g 'id e) " " (gb:cm (gb:g 'b e)) "x" (gb:cm (car hu))))
+      (foreach x (cdr hu) (setq nm (strcat nm "(" (gb:cm (gb:g 'b e)) "x" (gb:cm x) ")")))
+      (setq e (gb:pune 'name nm e))))
+  (gb:pune 'h (apply 'max (mapcar 'caddr tr)) (gb:pune 'tr tr e))
+)
+;; inaltimea elementului in dreptul lui u
+(defun gb:h-la (e u / r)
+  (foreach x (gb:g 'tr e) (if (and (null r) (<= u (+ (cadr x) gb:*tol*))) (setq r (caddr x))))
+  (if r r (caddr (last (gb:g 'tr e))))
+)
+;; conturul elementului (d = 0) sau al carcasei (d = 25 mm), in coordonate
+;; locale (x de la capatul stang, y in jos de la fata de sus), cu trepte
+(defun gb:contur (tr ua lt d / r pts k dr st hl hr x)
+  (setq r (reverse tr)
+        pts (list (list d (- d)) (list (- lt d) (- d)) (list (- lt d) (- d (caddr (car r))))))
+  (setq k 0)
+  (repeat (1- (length r))
+    (setq dr (nth k r) st (nth (1+ k) r) hr (caddr dr) hl (caddr st)
+          x (- (car dr) ua) x (if (> hl hr) (- x d) (+ x d))
+          pts (append pts (list (list x (- d hr)) (list x (- d hl))))
+          k (1+ k)))
+  (append pts (list (list d (- d (caddr (last r))))))
+)
+
 (defun gb:sus50 (x) (* 50.0 (fix (+ (/ x 50.0) 0.999999))))
 
 ;; grinzi: pe fiecare deschidere, zone de capat de 1/4 (rotunjit la 5 cm)
@@ -476,7 +542,7 @@
 ;; AXE SI SECTIUNI DE COFRAJ
 ;; =========================================================================
 ;; axele perpendiculare care trec prin reazemele elementului: ((u nume) ...)
-(defun gb:axe-element (e / dr vm r c best tu tv dd q)
+(defun gb:axe-element (e / dr vm r c)
   (setq dr (gb:g 'dir e) vm (/ (+ (gb:g 'va e) (gb:g 'vb e)) 2.0))
   (foreach a gb:*axe*
     (setq c (cadr a))
@@ -485,17 +551,38 @@
              (vl-some '(lambda (s) (and (member (car s) '("S" "G")) (<= (- (cadr s) gb:*tol*) c (+ (caddr s) gb:*tol*))))
                       (gb:g 'sups e))
              (not (vl-some '(lambda (x) (equal (car x) c gb:*tol*)) r)))
-      (progn
-        (setq best nil)
-        (foreach t1 gb:*axtx*
-          (setq q (gb:uv dr (car t1) (cadr t1)) tu (car q) tv (cadr q)
-                dd (min (abs (- tv (caddr a))) (abs (- tv (cadddr a)))))
-          (if (and (<= (abs (- tu c)) 350.0) (< dd 800.0)
-                   (or (> tv (- (cadddr a) 50.0)) (< tv (+ (caddr a) 50.0)))
-                   (or (null best) (< dd (car best))))
-            (setq best (list dd (caddr t1)))))
-        (setq r (cons (list c (if best (cadr best) "?")) r)))))
+      (setq r (cons (list c (gb:eticheta-axa a)) r))))
   (gb:sort r '(lambda (a b) (< (car a) (car b))))
+)
+
+;; numele unei axe (dir c lo hi): textul de pe "Axe" de langa un capat al ei
+(defun gb:eticheta-axa (a / dr c best q tu tv dd)
+  (setq dr (- 1 (car a)) c (cadr a))
+  (foreach t1 gb:*axtx*
+    (setq q (gb:uv dr (car t1) (cadr t1)) tu (car q) tv (cadr q)
+          dd (min (abs (- tv (caddr a))) (abs (- tv (cadddr a)))))
+    (if (and (<= (abs (- tu c)) 350.0) (< dd 800.0)
+             (or (> tv (- (cadddr a) 50.0)) (< tv (+ (caddr a) 50.0)))
+             (or (null best) (< dd (car best))))
+      (setq best (list dd (caddr t1)))))
+  (if best (cadr best) "?")
+)
+
+;; acelasi nume la axe paralele diferite (la distanta una de alta) = greseala
+(defun gb:verifica-axe ( / lst vazut n p)
+  (foreach a gb:*axe*
+    (if (not (vl-some '(lambda (x) (and (= (car x) (car a)) (equal (cadr x) (cadr a) gb:*tol*))) lst))
+      (setq lst (cons (list (car a) (cadr a) (gb:eticheta-axa a) (caddr a) (cadddr a)) lst))))
+  (foreach a lst
+    (if (and (/= (caddr a) "?") (not (member (list (car a) (caddr a)) vazut)))
+      (progn
+        (setq n (length (vl-remove-if-not '(lambda (x) (and (= (car x) (car a)) (= (caddr x) (caddr a)))) lst)))
+        (if (> n 1)
+          (progn
+            (setq vazut (cons (list (car a) (caddr a)) vazut)
+                  p (if (= (car a) 1) (list (cadr a) (nth 4 a)) (list (nth 3 a) (cadr a))))
+            (gb:err p (strcat "Axa " (caddr a) " apare la " (itoa n) " axe " (if (= (car a) 1) "verticale" "orizontale")
+                              " diferite - verificati numerotarea axelor")))))))
 )
 
 ;; elementul caruia ii apartine o sectiune de cofraj (aceleasi doua fete,
@@ -525,7 +612,7 @@
              (<= x1 (car (cadr dm)) x2) (<= y1 (cadr (cadr dm)) y2))
       (setq dims (cons (caddr dm) dims))))
   (setq tx (gb:texte-grup e))
-  (list (reverse dims) (car tx) (cadr tx))
+  (list (reverse dims) (car tx) (cadr tx) (list (/ (+ x1 x2) 2.0) (/ (+ y1 y2) 2.0)))
 )
 
 ;; verificarea inaltimii unui element fata de sectiunile lui de cofraj
@@ -562,7 +649,7 @@
                                       " (inaltime " (gb:cm hm) " cm) - verificati inaltimea"))))))
 )
 
-(defun gb:verifica-cofraj (e top / secs s dims lib fld sum t1 b1 p)
+(defun gb:verifica-cofraj (e top / secs s dims lib fld sum t1 b1 p hh)
   (setq secs (gb:g 'secs e) p (gb:g 'p e))
   (cond
     ((null secs)
@@ -570,20 +657,22 @@
        (gb:err p (strcat (gb:g 'name e) ": nu am gasit grupul de cofraj (sectiunea) pe plan"))))
     (T
      (foreach s secs
-       (setq dims (car s) lib (cadr s) fld (caddr s))
+       (setq dims (car s) lib (cadr s) fld (caddr s)
+             ;; inaltimea elementului in dreptul sectiunii (sectiune variabila)
+             hh (gb:h-la e (car (gb:uv (gb:g 'dir e) (car (cadddr s)) (cadr (cadddr s))))))
        (if dims
          (progn
            (setq sum (apply '+ dims))
-           (if (not (equal sum (gb:g 'h e) gb:*tol*))
-             (gb:err p (strcat (gb:g 'name e) ": inaltimea din nume este " (gb:cm (gb:g 'h e))
+           (if (not (equal sum hh gb:*tol*))
+             (gb:err p (strcat (gb:g 'name e) ": inaltimea din nume este " (gb:cm hh)
                                " cm, grupul de cofraj arata "
                                (apply 'strcat (cdr (apply 'append (mapcar '(lambda (d) (list "+" (gb:cm d))) dims))))
                                " = " (gb:cm sum) " cm")))))
        (if (and lib fld (setq t1 (gb:numar-cota (car lib))) (setq b1 (gb:numar-cota (car fld))))
          (progn
-           (if (not (equal (* 1000.0 (- t1 b1)) (gb:g 'h e) gb:*tol*))
+           (if (not (equal (* 1000.0 (- t1 b1)) hh gb:*tol*))
              (gb:err p (strcat (gb:g 'name e) ": cotele de nivel din grupul de cofraj (" (car lib) " / " (car fld)
-                               ") dau " (gb:cm (* 1000.0 (- t1 b1))) " cm, numele spune " (gb:cm (gb:g 'h e)) " cm")))
+                               ") dau " (gb:cm (* 1000.0 (- t1 b1))) " cm, numele spune " (gb:cm hh) " cm")))
            (if (not (equal t1 top 0.0005))
              (gb:err p (strcat (gb:g 'name e) ": grupul de cofraj are cota de sus " (car lib)
                                ", diferita de " (gb:fmt-cota top)))))
@@ -676,17 +765,23 @@
 )
 
 ;; cota de inaltime si cotele de nivel, la dreapta elementului
-(defun gb:cote-nivel (doc ms xr yt h top / d objs x0 tsus tjos pl yl fc)
-  (setq d (gb:cota ms (list xr yt) (list xr (- yt h)) (list (+ xr 250.0) yt) (/ pi 2.0)))
-  (setq objs (list d) x0 (+ xr 409.5))
+;; xr = capatul elementului; stanga = T pentru grupul de la capatul stang
+;; (sectiune variabila). Simbolul: triunghi cu varful pe linia de nivel,
+;; impartit in doua: jumatatea stanga hasurata SOLID, cea dreapta goala.
+(defun gb:cote-nivel (doc ms xr yt h top stanga / d objs ax tsus tjos pl pr yl yv fc)
+  (setq ax (if stanga (- xr 885.1) (+ xr 440.1)))
+  (setq d (gb:cota ms (list xr yt) (list xr (- yt h)) (list (if stanga (- xr 206.4) (+ xr 250.0)) yt) (/ pi 2.0)))
+  (setq objs (list d))
   (foreach yl (list yt (- yt h))
-    (setq pl (gb:o (gb:poli gb:*l-cote* (list (list x0 (+ yl 68.5)) (list (+ x0 30.6) (+ yl 68.5)) (list (+ x0 30.6) yl)))))
+    (setq yv (+ yl 68.5)
+          pl (gb:o (gb:poli gb:*l-cote* (list (list (- ax 30.6) yv) (list ax yv) (list ax yl))))
+          pr (gb:o (gb:poli gb:*l-cote* (list (list ax yv) (list (+ ax 30.6) yv) (list ax yl)))))
     (setq objs (append objs
-                       (list (gb:o (gb:linie gb:*l-cote* (list (+ xr 367.0) yl) (list (+ xr 513.0) yl)))
-                             pl (gb:hasura ms pl "SOLID" 1.0 gb:*l-cote*)
-                             (gb:o (gb:linie gb:*l-cote* (list x0 (+ yl 68.5)) (list (+ x0 518.0) (+ yl 68.5))))))))
-  (setq tsus (gb:o (gb:text gb:*l-cote* (list (+ x0 209.9) (+ yt 179.4)) 125.0 (gb:fmt-cota top) gb:*st-text* "MC" nil))
-        tjos (gb:o (gb:text gb:*l-cote* (list (+ x0 209.9) (+ (- yt h) 179.4)) 125.0
+                       (list (gb:o (gb:linie gb:*l-cote* (list (- ax 73.0) yl) (list (+ ax 73.0) yl)))
+                             pl (gb:hasura ms pl "SOLID" 1.0 gb:*l-cote*) pr
+                             (gb:o (gb:linie gb:*l-cote* (list (- ax 30.6) yv) (list (+ ax 487.4) yv)))))))
+  (setq tsus (gb:o (gb:text gb:*l-cote* (list (+ ax 179.3) (+ yt 179.4)) 125.0 (gb:fmt-cota top) gb:*st-text* "MC" nil))
+        tjos (gb:o (gb:text gb:*l-cote* (list (+ ax 179.3) (+ (- yt h) 179.4)) 125.0
                             (gb:fmt-cota (- top (/ h 1000.0))) gb:*st-text* "MC" nil)))
   ;; cota de jos = cota de sus - cota de inaltime, ca FIELD (ca in desenele
   ;; facute manual): se actualizeaza daca se schimba cota de sus sau inaltimea
@@ -784,17 +879,18 @@
   (if r r xs)
 )
 
-(defun gb:deseneaza (doc ms e n top ox oy / ua ub lt h yb x et zones desc pct pt2 a b xm s xs txs titlu cu hc)
-  (setq ua (gb:g 'ua e) ub (gb:g 'ub e) lt (- ub ua) h (gb:g 'h e) yb (- oy h))
+(defun gb:deseneaza (doc ms e n top ox oy / ua ub lt h yb x et zones desc pct pt2 a b xm s xs txs titlu cu hc tr k j x1 x2)
+  (setq ua (gb:g 'ua e) ub (gb:g 'ub e) lt (- ub ua) h (gb:g 'h e) yb (- oy h) tr (gb:g 'tr e))
   (defun gb:x (u) (+ ox (- u ua)))
-  ;; elementul si carcasa
-  (gb:dreptunghi gb:*l-elem* ox oy (+ ox lt) yb)
-  (gb:dreptunghi gb:*l-fier* (+ ox gb:*acop*) (- oy gb:*acop*) (+ ox lt (- gb:*acop*)) (+ yb gb:*acop*))
+  (defun gb:yjos (u) (- oy (gb:h-la e u)))
+  ;; elementul si carcasa (cu trepte la sectiune variabila)
+  (gb:poli gb:*l-elem* (mapcar '(lambda (p) (list (+ ox (car p)) (+ oy (cadr p)))) (gb:contur tr ua lt 0.0)))
+  (gb:poli gb:*l-fier* (mapcar '(lambda (p) (list (+ ox (car p)) (+ oy (cadr p)))) (gb:contur tr ua lt gb:*acop*)))
   ;; reazemele
   (foreach s (gb:g 'sups e)
     (cond
-      ((= (car s) "S") (gb:simbol-reazem doc ms (gb:x (cadr s)) (gb:x (caddr s)) yb "ANSI31" 35.0))
-      ((= (car s) "Z") (gb:simbol-reazem doc ms (gb:x (cadr s)) (gb:x (caddr s)) yb "AR-B88" 0.8))
+      ((= (car s) "S") (gb:simbol-reazem doc ms (gb:x (cadr s)) (gb:x (caddr s)) (gb:yjos (/ (+ (cadr s) (caddr s)) 2.0)) "ANSI31" 35.0))
+      ((= (car s) "Z") (gb:simbol-reazem doc ms (gb:x (cadr s)) (gb:x (caddr s)) (gb:yjos (/ (+ (cadr s) (caddr s)) 2.0)) "AR-B88" 0.8))
       ((= (car s) "G")
        (setq a (gb:o (gb:dreptunghi gb:*l-elem* (gb:x (cadr s)) oy (gb:x (caddr s)) (- oy (cadddr s)))))
        (gb:grup doc (list a (gb:hasura ms a "ANSI31" 35.0 gb:*l-elem*))))))
@@ -804,7 +900,7 @@
              (gb:etr-buiandrug (gb:g 'sups e) ua ub))
         zones (cadr et) desc (caddr et))
   (foreach u (car et)
-    (gb:linie gb:*l-etr* (list (gb:x u) (- oy gb:*acop*)) (list (gb:x u) (+ yb gb:*acop*))))
+    (gb:linie gb:*l-etr* (list (gb:x u) (- oy gb:*acop*)) (list (gb:x u) (+ (gb:yjos u) gb:*acop*))))
   ;; lantul de sus: zonele de etrieri, fara opriri la stalpi: prima incepe
   ;; din coltul grinzii (cu stalp), ultima se termina la capatul ei, iar
   ;; zonele cu acelasi pas de o parte si de alta a unui stalp intermediar
@@ -845,8 +941,9 @@
     (entmakex (list '(0 . "CIRCLE") (cons 8 gb:*l-axe-d*) '(6 . "Continuous") '(62 . 7)
                     (list 10 x (+ oy 639.4) 0.0) '(40 . 119.2)))
     (gb:text gb:*l-axe-d* (list x (+ oy 639.4)) 140.0 (cadr ax) gb:*st-axe* "MC" 7))
-  ;; cota de inaltime si cotele de nivel
-  (gb:cote-nivel doc ms (+ ox lt) oy h top)
+  ;; cota de inaltime si cotele de nivel; la sectiune variabila la ambele capete
+  (gb:cote-nivel doc ms (+ ox lt) oy (caddr (last tr)) top nil)
+  (if (> (length tr) 1) (gb:cote-nivel doc ms ox oy (caddr (car tr)) top T))
   ;; sectiunea "xx"
   (if xs
     (progn
@@ -862,8 +959,24 @@
   (setq cu (+ ox (/ lt 2.0) -200.0))
   (if (= (gb:g 'tip e) "G")
     (progn
+      ;; sus: continua
       (gb:armatura doc ms (+ ox gb:*acop*) (+ ox lt (- gb:*acop*)) (- yb 1085.0) (- gb:*cioc-g*) gb:*arm-g* cu)
-      (gb:armatura doc ms (+ ox gb:*acop*) (+ ox lt (- gb:*acop*)) (- yb 1680.0) gb:*cioc-g* gb:*arm-g* cu))
+      (if (= (length tr) 1)
+        (gb:armatura doc ms (+ ox gb:*acop*) (+ ox lt (- gb:*acop*)) (- yb 1680.0) gb:*cioc-g* gb:*arm-g* cu)
+        ;; jos, la sectiune variabila: cate o bara pe fiecare tronson, peste
+        ;; tot stalpul de la treapta (barele vecine se petrec pe stalp), pe
+        ;; doua randuri alternate
+        (progn
+          (setq k 0)
+          (foreach x tr
+            (setq s (if (> k 0) (gb:reazem-la e (car x)))
+                  x1 (if s (+ (gb:x (cadr s)) gb:*acop*) (+ ox gb:*acop*))
+                  s (if (< k (1- (length tr))) (gb:reazem-la e (cadr x)))
+                  x2 (if s (- (gb:x (caddr s)) gb:*acop*) (+ ox lt (- gb:*acop*)))
+                  j (- (length tr) 1 k))
+            (gb:armatura doc ms x1 x2 (- yb (if (= (rem j 2) 0) 1835.0 2165.0)) gb:*cioc-g* gb:*arm-g*
+                         (+ (/ (+ x1 x2) 2.0) -200.0))
+            (setq k (1+ k))))))
     (progn
       ;; fierul de jos al centurii: la (inaltimea centurii - 2 x 25 mm) sub
       ;; fierul de sus al carcasei
@@ -882,13 +995,22 @@
   lt
 )
 
+;; reazemul (din 'sups) care cuprinde punctul u
+(defun gb:reazem-la (e u / r)
+  (foreach s (gb:g 'sups e)
+    (if (and (null r) (<= (- (cadr s) gb:*tol*) u (+ (caddr s) gb:*tol*))) (setq r s)))
+  r
+)
+
 ;; semnatura geometriei, ca sa se recunoasca elementele identice
 (defun gb:semnatura (e / ua)
   (setq ua (gb:g 'ua e))
   (apply 'strcat
          (append (list (gb:g 'name e) "|" (gb:rtos (- (gb:g 'ub e) ua) 0))
                  (mapcar '(lambda (s) (strcat "|" (car s) (gb:rtos (- (cadr s) ua) 0) "-" (gb:rtos (- (caddr s) ua) 0)))
-                         (gb:g 'sups e))))
+                         (gb:g 'sups e))
+                 (mapcar '(lambda (x) (strcat "|h" (gb:rtos (- (car x) ua) 0) "-" (gb:rtos (caddr x) 0)))
+                         (gb:g 'tr e))))
 )
 
 ;; marcajele greselilor pe plan
@@ -921,10 +1043,11 @@
   (if (setq ss (ssget (list (cons 8 "Markers,Grinzi,Centuri,Stalpi,Axe,Cofrag"))))
     (progn
       (gb:citeste ss)
+      (gb:verifica-axe)
       ;; elementele (dublurile - doua texte pe acelasi element - o data)
       (foreach mk (reverse gb:*mk*)
         (if (and (setq e (gb:element mk))
-                 (not (vl-some '(lambda (o) (and (= (gb:g 'name o) (gb:g 'name e))
+                 (not (vl-some '(lambda (o) (and (= (gb:g 'id o) (gb:g 'id e))
                                                 (equal (gb:g 'lo o) (gb:g 'lo e) gb:*tol*)
                                                 (equal (gb:g 'hi o) (gb:g 'hi e) gb:*tol*)
                                                 (equal (gb:g 'va o) (gb:g 'va e) gb:*tol*)))
@@ -940,7 +1063,7 @@
       (foreach e gb:*el*
         (if (/= (gb:g 'tip e) "C")
           (progn
-            (setq e (gb:reazeme e))
+            (setq e (gb:tronsoane (gb:reazeme e)))
             (setq el (cons (gb:pune 'axes (gb:axe-element e) e) el)))))
       (setq el (gb:sort (reverse el)
                         '(lambda (a b) (if (= (gb:g 'tip a) (gb:g 'tip b))
@@ -981,6 +1104,8 @@
               (gb:straturi)
               (setq p (trans p 1 0) ox (car p) oy (cadr p) n 0)
               (foreach g grupe
+                ;; loc si pentru cotele de nivel de la capatul stang (sectiune variabila)
+                (if (> (length (gb:g 'tr (cadr g))) 1) (setq ox (+ ox 1100.0)))
                 (setq ox (+ ox (gb:deseneaza doc ms (cadr g) (caddr g) top ox oy) gb:*spatiu*) n (1+ n)))
               (setq gb:*err* (reverse gb:*err*))
               (gb:marcheaza-erori gb:*err*)

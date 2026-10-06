@@ -84,4 +84,15 @@ Marca otelului (cercul cu `a`) nu se mai pune: etrierii se pot numara direct din
 - buiandrugi cu cota de jos diferita de a celorlalti (de obicei toti au aceeasi, ex. +2.20)
 - capat de grinda care nu reazema pe stalp sau grinda
 - text de element care nu e intre doua linii
+- acelasi nume (numar) la axe paralele diferite
 - acelasi nume la elemente cu lungimi / reazeme diferite (se face cate o desfasurata pentru fiecare)
+
+## Grinzi cu sectiune variabila
+
+Doua texte cu acelasi numar pe aceeasi grinda, pe deschideri diferite (ex. `G1 30x50` si `G1 30x40`), dau o singura
+grinda cu sectiune variabila, numita `G1 30x50(30x40)`:
+- treapta e la fata stalpului dinspre partea mai joasa (stalpul ramane la partea mai inalta); conturul si carcasa
+  urmeaza treapta
+- cotele de nivel si de inaltime se pun la ambele capete
+- armatura de sus e continua; jos, cate o bara pe fiecare tronson, fiecare trecand peste tot stalpul de la treapta
+- grupul de cofraj se verifica fata de inaltimea tronsonului in dreptul caruia sta
