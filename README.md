@@ -45,14 +45,14 @@ Toata generarea se anuleaza cu un singur `U`.
   - grinda pe care reazema (ex. G3 pe G1): sectiunea ei, hasurata
   - la buiandrugi, capatul fara stalp: caramida de 30 cm (hasura AR-B88), de ajustat manual daca e cazul
 - etrierii, linii pe `Otel etrieri`:
-  - **grinzi**: pe fiecare deschidere, zona de capat = 1/4 din lumina, rotunjita in sus la 5 cm
+  - **grinzi**: la o deschidere (lumina) mai mica de 1.20 m, toti etrierii la 15 cm; altfel, pe fiecare deschidere, zona de capat = 1/4 din lumina, rotunjita in sus la 5 cm
     (4.975 m -> 1.25 m). Din punctul de impartire se merge cu 10 cm spre stalp, fara sa intre in el; la
     mijloc cu 15 cm, de la stanga la dreapta; din al doilea punct de impartire iar cu 10 cm pana la stalpul
     din dreapta. Daca la mijloc ramane un rest, ultimii doi etrieri sunt mai apropiati (niciodata mai
     departe de 15 cm).
   - **buiandrugi**: la 15 cm peste tot, in afara de stalpi (si peste caramida); ultimul se pune la capat.
   - nu se pun etrieri in stalpi (si nici in grinda pe care reazema elementul).
-- lantul de cote de sus (stalpii si zonele de etrieri) cu `etr. %%C8/10` / `etr. %%C8/15` sub el; lantul
+- lantul de cote de sus (doar zonele de etrieri, fara stalpi) cu `etr. %%C8/10` / `etr. %%C8/15` sub el; lantul
   de jos (reazemele si deschiderile); stil `Centimetri 50 cu virgula`, layer `Cote`
 - axele care trec prin reazeme (stalpi / grinda de reazem), cu numele lor; unde nu trece nicio axa, nu se pune
 - grupul de cote de nivel (layer `Cote`): cota de inaltime, cota de sus si cota de jos ca FIELD
@@ -72,6 +72,8 @@ Marca otelului (cercul cu `a`) nu se mai pune: etrierii se pot numara direct din
 - cotele de nivel din grupul de cofraj care nu se potrivesc cu inaltimea din nume, sau care lipsesc
 - cota de sus din grupul de cofraj diferita de cea data la pornire
 - grinda fara grup de cofraj pe plan
+- buiandrug cu latimea din nume diferita de grosimea zidului (distanta dintre liniile de centura in care sta)
+- buiandrugi cu cota de jos diferita de a celorlalti (de obicei toti au aceeasi, ex. +2.20)
 - capat de grinda care nu reazema pe stalp sau grinda
 - text de element care nu e intre doua linii
 - acelasi nume la elemente cu lungimi / reazeme diferite (se face cate o desfasurata pentru fiecare)

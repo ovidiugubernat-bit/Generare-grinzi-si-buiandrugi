@@ -64,6 +64,7 @@
 (setq gb:*l-caram*  300.0)   ; latimea caramizii la buiandrugi (mm)
 (setq gb:*pas-cap*  100.0)   ; pasul etrierilor la capete, grinzi (mm)
 (setq gb:*pas-mij*  150.0)   ; pasul etrierilor in camp / la buiandrugi (mm)
+(setq gb:*desc-mica* 1200.0) ; grinzi cu lumina mai mica: toti etrierii la 15 cm (mm)
 (setq gb:*etr-dist* 50.0)    ; primul etrier de la capatul liber al buiandrugului (mm)
 (setq gb:*lat-etr*  280.0)   ; jumatate din latimea textului "etr. %%C8/15" (mm)
 (setq gb:*diam*     "%%C8")
@@ -249,7 +250,11 @@
        (setq pts (car (gb:varfuri ed)))
        (if (>= (length pts) 6) (setq gb:*cof* (cons (list e pts) gb:*cof*))))
       ((and (= lay gb:*l-cofrag*) (= tip "DIMENSION"))
-       (setq gb:*cofdim* (cons (list (cdr (assoc 13 ed)) (cdr (assoc 14 ed)) (cdr (assoc 42 ed))) gb:*cofdim*)))
+       ;; marimea cotei in mm, din punctele ei (valoarea din desen e deja
+       ;; inmultita cu factorul stilului, ex. in cm)
+       (setq a (cdr (assoc 13 ed)) b (cdr (assoc 14 ed)) rot (cond ((cdr (assoc 50 ed))) (0.0)))
+       (setq gb:*cofdim* (cons (list a b (abs (+ (* (- (car b) (car a)) (cos rot)) (* (- (cadr b) (cadr a)) (sin rot)))))
+                               gb:*cofdim*)))
     )
   )
 )
@@ -412,12 +417,19 @@
 ;; grinzi: pe fiecare deschidere, zone de capat de 1/4 (rotunjit la 5 cm)
 ;; cu pas 10, la mijloc pas 15. Intoarce (pozitii zone deschideri), zona =
 ;; (a b pas_cm)
-(defun gb:etr-grinda (sups / poz zone desc s0 a b z p1 p2 x)
+(defun gb:etr-grinda (sups / poz zone desc s0 a b z p1 p2 x ultim)
   (setq s0 (car sups))
   (foreach s1 (cdr sups)
     (setq a (caddr s0) b (cadr s1) s0 s1)
-    (if (> (- b a) gb:*tol*)
-      (progn
+    (cond
+      ((<= (- b a) gb:*tol*))
+      ;; deschidere scurta: toti etrierii la 15 cm
+      ((< (- b a) gb:*desc-mica*)
+       (setq desc (cons (list a b) desc) x a ultim nil)
+       (while (<= x (+ b gb:*tol*)) (setq poz (cons x poz) ultim x x (+ x gb:*pas-mij*)))
+       (if (and ultim (> (- b ultim) 10.0)) (setq poz (cons b poz)))
+       (setq zone (append zone (list (list a b 15)))))
+      (T
         (setq desc (cons (list a b) desc)
               z (gb:sus50 (/ (- b a) 4.0)) p1 (+ a z) p2 (- b z))
         (if (>= p1 p2) (setq p1 (/ (+ a b) 2.0) p2 p1))
@@ -508,6 +520,39 @@
 )
 
 ;; verificarea inaltimii unui element fata de sectiunile lui de cofraj
+;; latimea zidului in care sta buiandrugul: distanta dintre liniile de
+;; centura paralele cu el, cele mai apropiate de o parte si de alta
+(defun gb:latime-zid (e / dr vm sus jos)
+  (setq dr (gb:g 'dir e) vm (/ (+ (gb:g 'va e) (gb:g 'vb e)) 2.0))
+  (foreach s (gb:paralele gb:*l-centuri* dr)
+    (if (and (> (gb:suprap (cadr s) (caddr s) (- (gb:g 'lo e) 1000.0) (+ (gb:g 'hi e) 1000.0)) gb:*tol*)
+             (< (abs (- (car s) vm)) 1000.0))
+      (cond
+        ((> (car s) vm) (if (or (null sus) (< (car s) sus)) (setq sus (car s))))
+        ((< (car s) vm) (if (or (null jos) (> (car s) jos)) (setq jos (car s)))))))
+  (if (and sus jos) (- sus jos))
+)
+
+(defun gb:verifica-buiandrugi (el top / bs hs r hm w)
+  (setq bs (vl-remove-if-not '(lambda (e) (= (gb:g 'tip e) "B")) el))
+  ;; latimea din nume = grosimea zidului (distanta dintre liniile de centura)
+  (foreach e bs
+    (if (and (setq w (gb:latime-zid e)) (not (equal w (gb:g 'b e) gb:*tol*)))
+      (gb:err (gb:g 'p e) (strcat (gb:g 'name e) ": latimea din nume este " (gb:cm (gb:g 'b e))
+                                  " cm, zidul (intre liniile de centura) are " (gb:cm w) " cm"))))
+  ;; de obicei toti buiandrugii au cota de jos la acelasi nivel
+  (foreach e bs
+    (if (setq r (assoc (gb:g 'h e) hs)) (setq hs (subst (cons (car r) (1+ (cdr r))) r hs)) (setq hs (cons (cons (gb:g 'h e) 1) hs))))
+  (if (> (length hs) 1)
+    (progn
+      (setq hm (car (car (gb:sort hs '(lambda (a b) (> (cdr a) (cdr b)))))))
+      (foreach e bs
+        (if (not (equal (gb:g 'h e) hm 0.1))
+          (gb:err (gb:g 'p e) (strcat (gb:g 'name e) ": cota de jos " (gb:fmt-cota (- top (/ (gb:g 'h e) 1000.0)))
+                                      ", ceilalti buiandrugi au " (gb:fmt-cota (- top (/ hm 1000.0)))
+                                      " (inaltime " (gb:cm hm) " cm) - verificati inaltimea"))))))
+)
+
 (defun gb:verifica-cofraj (e top / secs s dims lib fld sum t1 b1 p)
   (setq secs (gb:g 'secs e) p (gb:g 'p e))
   (cond
@@ -675,15 +720,9 @@
         zones (cadr et) desc (caddr et))
   (foreach u (car et)
     (gb:linie gb:*l-etr* (list (gb:x u) (- oy gb:*acop*)) (list (gb:x u) (+ yb gb:*acop*))))
-  ;; lantul de sus: stalpii si zonele de etrieri, cu textul zonei
-  (setq pct (list ua ub))
-  (foreach s (gb:g 'sups e) (if (member (car s) '("S" "G")) (setq pct (append pct (list (cadr s) (caddr s))))))
-  (foreach z zones (setq pct (append pct (list (car z) (cadr z)))))
-  (setq pct (vl-remove-if '(lambda (u) (or (< u (- ua gb:*tol*)) (> u (+ ub gb:*tol*)))) (gb:unic-num pct)))
-  (setq a (car pct))
-  (foreach b (cdr pct)
-    (gb:cota ms (list (gb:x a) oy) (list (gb:x b) oy) (list (gb:x a) (+ oy 300.0)) 0.0)
-    (setq a b))
+  ;; lantul de sus: doar zonele de etrieri (fara stalpi), cu textul zonei
+  (foreach z zones
+    (gb:cota ms (list (gb:x (car z)) oy) (list (gb:x (cadr z)) oy) (list (gb:x (car z)) (+ oy 300.0)) 0.0))
   ;; sectiunea "xx" sta in prima treime a primei deschideri (de la reazemul
   ;; din stanga), spre capatul treimii; daca ar cadea peste textul unei
   ;; zone, se muta ea in treime (textul ramane la mijlocul cotei)
@@ -809,6 +848,7 @@
           (setq s (getstring (strcat "\nCota de sus a grinzilor si buiandrugilor (gasita pe cofraj) <" (gb:fmt-cota top) ">: ")))
           (if (and (/= s "") (gb:numar-cota s)) (setq top (gb:numar-cota s)))
           (foreach e el (gb:verifica-cofraj e top))
+          (gb:verifica-buiandrugi el top)
           ;; elementele identice o singura data, cu numarul de bucati
           (foreach e el
             (setq sem (gb:semnatura e))
