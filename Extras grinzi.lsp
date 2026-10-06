@@ -1,4 +1,15 @@
 ;; Revizie:
+;;  - etrierii dintr-un "Chenar etrieri" fara marca (grupul cerc+marca sters
+;;    sau uitat) se numara totusi: marca se afla din numerele sectiunilor din
+;;    chenar (ex "1" si "1" -> sectiunea 1-1 -> definitia etrierului din
+;;    "Chenar pentru sectiuni etrieri" cu eticheta 1-1), la fel ca la
+;;    renumerotare. Daca marca din chenar nu se potriveste cu sectiunea, sau
+;;    nu se poate afla deloc, apare in avertismente.
+;;  - avertismente noi, ca nicio marca sa nu fie sarita fara sa se vada:
+;;    etrieri care nu se numara (fara marca, sau in afara oricarui Chenar
+;;    etrieri), definitii de etrier sau bare care nu ajung in tabel, numere
+;;    lipsa in sirul marcilor, marci nerenumerotate ("y", "x"), bucati
+;;    necompletate ("xxx buc.")
 ;;  - handler-ul de erori e local comenzii (nu mai ramane schimbat global) si
 ;;    nu mai afiseaza "[EROARE]" la ESC sau la iesirea normala
 ;;  - tabelul Excel lipit: punctul nu mai e mutat de OSNAP, iar daca lipirea
@@ -407,7 +418,9 @@
                                     in_etrier ch_etr2 bare_din_diam nr_bare d_final
                                     ch_etr etr_poly_pts linii_count marci_in_careu m_item val_m def_etr mc linii_gasite le
                                     grupuri_centuri buc_txt buc_manual
-                                    all_buc_centuri grupuri_extra bc gid gelems gasit_grup )
+                                    all_buc_centuri grupuri_extra bc gid gelems gasit_grup
+                                    all_chenare_sect all_etichete_nn all_nr_sect valori v et ch_s def_s n_lini
+                                    marci_numarate grupuri_bare_complete in_vreun_chenar nums mx k )
 
   (setq base_list nil all_chenare_stalp nil all_chenare_etr nil all_stalpi_txt nil
         all_linii_etr nil all_marci_texte nil group_map nil all_buc_centuri nil)
@@ -421,6 +434,7 @@
     (cond
       ((= lay "CHENAR PENTRU ARMATURA") (setq all_chenare_stalp (cons ent all_chenare_stalp)))
       ((= lay "CHENAR ETRIERI")         (setq all_chenare_etr (cons ent all_chenare_etr)))
+      ((= lay "CHENAR PENTRU SECTIUNI ETRIERI") (setq all_chenare_sect (cons ent all_chenare_sect)))
       ((= lay "OTEL ETRIERI")
        (setq pt (cdr (assoc 10 edata)))
        (if pt (setq all_linii_etr (cons (list (car pt) (cadr pt) ent) all_linii_etr))))
@@ -437,6 +451,12 @@
         )
         (if (= lay "BUCATI ETRIERI CENTURI")
           (setq all_buc_centuri (cons (list txt ent) all_buc_centuri)))
+        ;; numerele sectiunilor (in Chenar etrieri) si etichetele N-N (in
+        ;; Chenar pentru sectiuni etrieri)
+        (if (= lay "SECTIUNI GRINZI")
+          (if (vl-string-search "-" txt)
+            (setq all_etichete_nn (cons (list (strcase (vl-string-trim " " txt)) pt) all_etichete_nn))
+            (setq all_nr_sect (cons (list (strcase (vl-string-trim " " txt)) pt) all_nr_sect))))
 
         (setq grpid (grz-get-group-id ent))
         (if grpid
@@ -507,6 +527,10 @@
                 (setq d_final (cdr (grz-analizeaza-diametru-bare (car dn))))
               )
               (setq buc_manual (grz-extrage-buc buc_txt))
+              (if (not (wcmatch buc_txt "*#*"))
+                (setq *grz-warnings*
+                  (cons (strcat "Marca " mval ": bucatile nu sunt completate (\"" buc_txt "\") - am pus 1 buc.")
+                        *grz-warnings*)))
               (setq base_list (grz-adauga-marca mval d_final (grz-curata-numar (car ln)) buc_manual base_list (caddr mi)))
               (setq *grz-marca-entitati* (cons (cons mval (caddr dn)) *grz-marca-entitati*))
               (setq *grz-marca-entitati* (cons (cons mval (caddr ln)) *grz-marca-entitati*))
@@ -598,6 +622,43 @@
               )
             )
           )
+          ;; marca dupa sectiuni: numerele care apar de 2 ori in chenar (sus si
+          ;; jos) -> eticheta N-N -> chenarul de sectiuni -> definitia din el
+          (setq valori nil def_s nil)
+          (foreach v all_nr_sect
+            (if (grz-punct-in-poligon (cadr v) etr_poly_pts) (setq valori (cons (car v) valori))))
+          (foreach v valori
+            (if (and (>= (length (vl-remove-if-not '(lambda (x) (= x v)) valori)) 2) (not def_s))
+              (progn
+                (setq et (strcat v "-" v))
+                (foreach e2 all_etichete_nn
+                  (if (= (car e2) et)
+                    (foreach ch_s all_chenare_sect
+                      (if (grz-punct-in-poligon (cadr e2) (grz-obtine-puncte-polilinie ch_s))
+                        ;; toate grupurile de definitie (aceeasi marca poate
+                        ;; avea definitii in mai multe chenare de sectiuni)
+                        (foreach grp group_map
+                          (setq gelems (cdr grp))
+                          (if (and (not def_s)
+                                   (assoc "OTEL MARCA" gelems) (assoc "OTEL LUNGIME" gelems)
+                                   (vl-some '(lambda (x) (and (= (car x) "OTEL DIAMETRU") (grz-are-pas (cadr x)))) gelems)
+                                   (grz-punct-in-poligon (caddr (assoc "OTEL MARCA" gelems)) (grz-obtine-puncte-polilinie ch_s)))
+                            (setq def_s (list et (grz-curata-numar (cadr (assoc "OTEL MARCA" gelems))))))))))))))
+          (cond
+            ((and (null marci_in_careu) def_s (> linii_count 0))
+             (setq marci_in_careu (list (cons (cadr def_s) nil)))
+             (princ (strcat "\n  Chenar etrieri fara marca: am luat marca " (cadr def_s) " din sectiunea " (car def_s)
+                            " (" (itoa linii_count) " etrieri).")))
+            ((and marci_in_careu def_s (not (assoc (cadr def_s) marci_in_careu)))
+             (setq *grz-warnings*
+               (cons (strcat "Chenar etrieri cu marca " (car (car marci_in_careu)) ", dar sectiunea " (car def_s)
+                             " din el arata etrierul " (cadr def_s) " - verificati.")
+                     *grz-warnings*)))
+            ((and (null marci_in_careu) (> linii_count 0))
+             (setq *grz-warnings*
+               (cons (strcat "Un Chenar etrieri cu " (itoa linii_count) " etrieri NU are marca si nici sectiune"
+                             " numerotata gasita - ACESTI ETRIERI NU SUNT NUMARATI!")
+                     *grz-warnings*))))
           (foreach mc marci_in_careu
             (setq val_m (car mc))
             (setq def_etr (assoc val_m etr_definitii))
@@ -616,6 +677,58 @@
       )
     )
   )
+
+  ;; ---- VERIFICARI: nimic sarit fara sa se vada ----
+  ;; etrieri in afara oricarui Chenar etrieri (din chenarele de armatura)
+  (setq n_lini 0)
+  (foreach pt all_linii_etr
+    (setq in_vreun_chenar nil)
+    (foreach ch_etr all_chenare_etr
+      (if (grz-punct-in-poligon pt (grz-obtine-puncte-polilinie ch_etr)) (setq in_vreun_chenar T)))
+    (if (not in_vreun_chenar)
+      (foreach chenar all_chenare_stalp
+        (if (grz-punct-in-poligon pt (grz-obtine-puncte-polilinie chenar)) (setq n_lini (1+ n_lini))))))
+  (if (> n_lini 0)
+    (setq *grz-warnings*
+      (cons (strcat (itoa n_lini) " etrieri (Otel etrieri) sunt in chenarele de armatura, dar in afara oricarui"
+                    " Chenar etrieri - NU SUNT NUMARATI!")
+            *grz-warnings*)))
+  ;; definitii de etrier care nu au ajuns in tabel
+  (setq marci_numarate (mapcar 'car base_list))
+  (foreach d2 etr_definitii
+    (if (not (member (car d2) marci_numarate))
+      (setq *grz-warnings*
+        (cons (strcat "Marca etrier " (car d2) " are definitie, dar nu am numarat niciun etrier cu ea"
+                      " (lipseste marca din Chenar etrieri, sau numerele sectiunilor?).")
+              *grz-warnings*))))
+  ;; bare lungi (grupuri complete) care nu au ajuns in tabel
+  (foreach grp group_map
+    (setq elems (cdr grp) mi (assoc "OTEL MARCA" elems) dn (assoc "OTEL DIAMETRU" elems))
+    (if (and mi dn (assoc "OTEL LUNGIME" elems) (not (grz-are-pas (cadr dn)))
+             (not (member (grz-curata-numar (cadr mi)) marci_numarate)))
+      (setq *grz-warnings*
+        (cons (strcat "Bara cu marca \"" (cadr mi) "\" (" (cadr dn) ") NU a ajuns in tabel - nu e intr-un Chenar pentru"
+                      " armatura (si nici nu are bucati de centura).")
+              *grz-warnings*))))
+  ;; marci nerenumerotate si numere lipsa in sir
+  (setq nums nil)
+  (foreach m_item all_marci_texte
+    (if (not (wcmatch (vl-string-trim " " (car m_item)) "#*"))
+      (if (not (member (car m_item) nums)) (setq nums (cons (car m_item) nums)))))
+  (if nums
+    (setq *grz-warnings*
+      (cons (strcat "Marci nerenumerotate (rulati RenumeroteazaMarciGrinzi): "
+                    (apply 'strcat (mapcar '(lambda (x) (strcat "\"" x "\" ")) nums)))
+            *grz-warnings*)))
+  (setq nums (mapcar '(lambda (x) (atoi (car x))) base_list) mx (if nums (apply 'max nums) 0) k 1 valori nil)
+  (while (<= k mx)
+    (if (not (member k nums)) (setq valori (cons (itoa k) valori)))
+    (setq k (1+ k)))
+  (if valori
+    (setq *grz-warnings*
+      (cons (strcat "Numere de marca lipsa din tabel: " (apply 'strcat (mapcar '(lambda (x) (strcat x " ")) (reverse valori)))
+                    "- verificati daca nu s-a sarit ceva.")
+            *grz-warnings*)))
 
   (setq sorted_list (vl-sort base_list '(lambda (e1 e2) (< (atof (car e1)) (atof (car e2))))))
   sorted_list

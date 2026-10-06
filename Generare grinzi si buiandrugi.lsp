@@ -617,7 +617,7 @@
              (<= x1 (car (cadr dm)) x2) (<= y1 (cadr (cadr dm)) y2))
       (setq dims (cons (caddr dm) dims))))
   (setq tx (gb:texte-grup e))
-  (list (reverse dims) (car tx) (cadr tx) (list (/ (+ x1 x2) 2.0) (/ (+ y1 y2) 2.0)))
+  (list (reverse dims) (car tx) (cadr tx) (list (/ (+ x1 x2) 2.0) (/ (+ y1 y2) 2.0)) pts)
 )
 
 ;; verificarea inaltimii unui element fata de sectiunile lui de cofraj
@@ -691,7 +691,8 @@
   (foreach l (list (list gb:*l-elem* 7 nil) (list gb:*l-fier* 100 nil) (list gb:*l-etr* 6 nil)
                    (list gb:*l-cote* 7 nil) (list gb:*l-axe-d* 1 "ACAD_ISO10W100") (list gb:*l-sect* 11 nil)
                    (list gb:*l-bucati* 7 nil) (list gb:*l-erori* 1 nil)
-                   (list gb:*l-marca* 2 nil) (list gb:*l-diam* 7 nil) (list gb:*l-lung* 7 nil))
+                   (list gb:*l-marca* 2 nil) (list gb:*l-diam* 7 nil) (list gb:*l-lung* 7 nil)
+                   (list gb:*l-ocg* 4 nil) (list gb:*l-buc-c* 7 nil) (list gb:*l-chenar-s* 23 "HIDDEN"))
     (if (not (tblsearch "LAYER" (car l)))
       (entmake (append (list '(0 . "LAYER") '(100 . "AcDbSymbolTableRecord") '(100 . "AcDbLayerTableRecord")
                              (cons 2 (car l)) '(70 . 0) (cons 62 (cadr l)))
@@ -716,7 +717,7 @@
 )
 ;; just: "BC" jos-centru, "MC" mijloc-centru, "BR" jos-dreapta
 (defun gb:text (lay pt h s stil just culoare / l j)
-  (setq j (cond ((= just "MC") '(1 2)) ((= just "BR") '(2 1)) ((= just "L") '(0 0)) (T '(1 0))))
+  (setq j (cond ((= just "MC") '(1 2)) ((= just "BR") '(2 1)) ((= just "L") '(0 0)) ((= just "M") '(4 0)) (T '(1 0))))
   (setq l (list '(0 . "TEXT") (cons 8 lay) (list 10 (car pt) (cadr pt) 0.0) (cons 40 h) (cons 1 s)
                 '(50 . 0.0) '(41 . 1.0) (cons 72 (car j)) (list 11 (car pt) (cadr pt) 0.0) (cons 73 (cadr j))))
   (if (tblsearch "STYLE" stil) (setq l (append l (list (cons 7 stil)))))
@@ -859,14 +860,15 @@
 
 ;; inaltimea centurii in care sta buiandrugul (aceeasi fasie, cea mai
 ;; apropiata de-a lungul lui); nil daca nu se gaseste
-(defun gb:h-centura (e / best dd)
+(defun gb:h-centura (e / o) (if (setq o (gb:centura-el e)) (gb:g 'h o)))
+(defun gb:centura-el (e / best dd)
   (foreach o gb:*el*
     (if (and (= (gb:g 'tip o) "C") (= (gb:g 'dir o) (gb:g 'dir e))
              (> (gb:suprap (gb:g 'va o) (gb:g 'vb o) (gb:g 'va e) (gb:g 'vb e)) (* 0.5 (- (gb:g 'vb e) (gb:g 'va e)))))
       (progn
         (setq dd (max 0.0 (- (gb:g 'lo o) (gb:g 'hi e)) (- (gb:g 'lo e) (gb:g 'hi o))))
         (if (and (<= dd 3000.0) (or (null best) (< dd (car best))))
-          (setq best (list dd (gb:g 'h o)))))))
+          (setq best (list dd o))))))
   (cadr best)
 )
 
@@ -884,12 +886,23 @@
   (if r r xs)
 )
 
-(defun gb:deseneaza (doc ms e n top ox oy / ua ub lt h yb yj x et zones desc pct pt2 a b xm s xs xss txs titlu cu hc tr k j x1 x2)
+(defun gb:deseneaza (doc ms e n top ox oy / ua ub lt h yb yj x et zones desc pct pt2 a b xm s xs xss txs titlu cu hc tr k j x1 x2 ce pc)
   (setq ua (gb:g 'ua e) ub (gb:g 'ub e) lt (- ub ua) h (gb:g 'h e) yb (- oy h) tr (gb:g 'tr e))
   (defun gb:x (u) (+ ox (- u ua)))
   (defun gb:yjos (u) (- oy (gb:h-la e u)))
   ;; elementul si carcasa (cu trepte la sectiune variabila)
-  (gb:poli gb:*l-elem* (mapcar '(lambda (p) (list (+ ox (car p)) (+ oy (cadr p)))) (gb:contur tr ua lt 0.0)))
+  ;; conturul poarta datele pentru SectiuniGrinzi (ascunse, XDATA)
+  (setq ce (gb:centura-el e) hc (if ce (gb:g 'h ce) 250.0)
+        pc (cond ((gb:placa e)) ((and (= (gb:g 'tip e) "B") ce) (gb:placa ce)) ((and (/= (gb:g 'tip e) "B") gb:*t-placa*) (list gb:*t-placa* T T))))
+  (entmakex (append (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") (cons 8 gb:*l-elem*) '(100 . "AcDbPolyline")
+                          (cons 90 (length (gb:contur tr ua lt 0.0))) '(70 . 1))
+                    (mapcar '(lambda (p) (list 10 (+ ox (car p)) (+ oy (cadr p)))) (gb:contur tr ua lt 0.0))
+                    (list (gb:date-scrie
+                            (list (cons "tip" (gb:g 'tip e)) (cons "nume" (gb:g 'name e))
+                                  (cons "b" (gb:rtos (gb:g 'b e) 1)) (cons "top" (gb:rtos top 3))
+                                  (cons "placa" (if pc (strcat (gb:rtos (car pc) 1) (if (cadr pc) " T" " nil") (if (caddr pc) " T" " nil")) ""))
+                                  (cons "hc" (gb:rtos hc 1))
+                                  (cons "tagc" (strcat "C" (gb:rtos (if ce (gb:g 'b ce) (gb:g 'b e)) 0) "x" (gb:rtos hc 0))))))))
   (gb:poli gb:*l-fier* (mapcar '(lambda (p) (list (+ ox (car p)) (+ oy (cadr p)))) (gb:contur tr ua lt gb:*acop*)))
   ;; reazemele
   (foreach s (gb:g 'sups e)
@@ -1018,6 +1031,12 @@
           (gb:err (gb:g 'p e) (strcat (gb:g 'name e) ": nu am gasit centura in care sta; fierul centurii l-am pus pentru centura de 25 cm"))))
       (gb:linie gb:*l-fier* (list (+ ox gb:*acop*) (- oy hc (- gb:*acop*)))
                 (list (+ ox lt (- gb:*acop*)) (- oy hc (- gb:*acop*))))
+      ;; etrierii centurii, langa cei ai buiandrugului (la 25 mm), pe "Otel
+      ;; centuri global" - doar figurati, nu se numara; nu intra in stalpi
+      (foreach u (car et)
+        (setq x (+ u gb:*acop*) s (gb:reazem-la e x))
+        (if (and (not (and s (member (car s) '("S" "G")))) (< x (- ub gb:*acop*)))
+          (gb:linie gb:*l-ocg* (list (gb:x x) (- oy gb:*acop*)) (list (gb:x x) (- oy hc (- gb:*acop*))))))
       (gb:armatura doc ms (+ ox gb:*acop*) (+ ox lt (- gb:*acop*)) (- yb 1210.0) gb:*cioc-b* gb:*arm-b* cu)))
   ;; titlul
   (setq xm (+ ox (/ lt 2.0)) titlu (strcat (gb:g 'name e) " " (itoa n) "buc."))
@@ -1112,6 +1131,15 @@
           (if (null top) (setq top 2.75))
           (setq s (getstring (strcat "\nCota de sus a grinzilor si buiandrugilor (gasita pe cofraj) <" (gb:fmt-cota top) ">: ")))
           (if (and (/= s "") (gb:numar-cota s)) (setq top (gb:numar-cota s)))
+          (setq s (getstring (strcat "\nArmatura longitudinala a centurilor <" gb:*arm-c* ">: ")))
+          (if (and (/= s "") (gb:n-diam s)) (setq gb:*arm-c* (strcase s)))
+          ;; grosimea placii cea mai des intalnita (pentru grinzile fara grup de cofraj)
+          (setq gb:*t-placa* nil lv nil)
+          (foreach e gb:*el*
+            (if (and (setq r (gb:placa e)) (setq r (assoc (fix (+ (car r) 0.5)) lv)))
+              (setq lv (subst (cons (car r) (1+ (cdr r))) r lv))
+              (if (setq r (gb:placa e)) (setq lv (cons (cons (fix (+ (car r) 0.5)) 1) lv)))))
+          (if lv (setq gb:*t-placa* (float (car (car (gb:sort lv '(lambda (a b) (> (cdr a) (cdr b)))))))))
           (foreach e el (gb:verifica-cofraj e top))
           (gb:verifica-buiandrugi el top)
           ;; elementele identice o singura data, cu numarul de bucati
@@ -1138,6 +1166,18 @@
                 ;; loc si pentru cotele de nivel de la capatul stang (sectiune variabila)
                 (if (> (length (gb:g 'tr (cadr g))) 1) (setq ox (+ ox 1100.0)))
                 (setq ox (+ ox (gb:deseneaza doc ms (cadr g) (caddr g) top ox oy) gb:*spatiu*) n (1+ n)))
+              ;; la urma: detaliile centurilor (cate unul pe tip) si barele lor drepte
+              (setq lv nil)
+              (foreach c (gb:sort (vl-remove-if-not '(lambda (o) (= (gb:g 'tip o) "C")) gb:*el*)
+                                  '(lambda (a b) (< (gb:g 'num a) (gb:g 'num b))))
+                (if (not (assoc (list (gb:g 'b c) (gb:g 'h c)) lv))
+                  (setq lv (append lv (list (cons (list (gb:g 'b c) (gb:g 'h c)) c))))))
+              (if lv
+                (progn
+                  (setq r ox)
+                  (foreach c lv
+                    (setq ox (+ ox (gb:detaliu-centura doc ms (cdr c) ox oy top (gb:n-diam gb:*arm-c*)) 500.0)))
+                  (gb:bare-centura doc ms (+ r 300.0) (- oy 5800.0) (gb:n-diam gb:*arm-c*))))
               (setq gb:*err* (reverse gb:*err*))
               (gb:marcheaza-erori gb:*err*)
               (gb:stil-cota doc ds0)
@@ -1160,5 +1200,532 @@
   (princ)
 )
 
-(princ "\nGenerare grinzi si buiandrugi incarcat. Comanda: GenerareGrinziBuiandrugi")
+;; =========================================================================
+;; SECTIUNI (1:20) - desen comun pentru detaliile centurilor (la generare)
+;; si pentru comanda SectiuniGrinzi. Totul e desenat de 2.5 ori mai mare
+;; decat desfasuratele (1:20 fata de 1:50), ca in desenele facute manual.
+;; =========================================================================
+(setq gb:*sc*        2.5)      ; 1:20 fata de 1:50
+(setq gb:*s-acop*    62.5)     ; acoperirea (25 mm) la scara sectiunii
+(setq gb:*s-bara*    35.0)     ; distanta etrier - marginea barei, la scara sectiunii
+(setq gb:*s-placa*   242.9)    ; cat iese placa in afara inimii, in sectiune
+(setq gb:*r-colt*    59.8)     ; raza colturilor etrierului desfasurat
+(setq gb:*cioc-e*    250.0)    ; ciocul etrierului (10 cm) la scara sectiunii
+(setq gb:*ds-20*     "Centimetrii sc 1la20")
+(setq gb:*ds-etr*    "etrier 20 marit")
+(setq gb:*l-chenar-s* "Chenar pentru sectiuni etrieri")
+(setq gb:*l-ocg*     "Otel centuri global")
+(setq gb:*l-buc-c*   "Bucati etrieri centuri")
+(setq gb:*app*       "GBGRINDA")   ; date ascunse pe conturul desfasuratei
+(setq gb:*app-m*     "GBMARCA")    ; legatura indicator / definitie, pentru renumerotare
+(setq gb:*arm-c*     "4%%C12")     ; armatura longitudinala a centurilor (se intreaba)
+
+;; "4%%C12" -> (4 12); nil daca nu se poate citi
+(defun gb:n-diam (s / p n d)
+  (setq s (strcase (vl-string-trim " " s)))
+  (if (setq p (vl-string-search "%%C" s))
+    (progn
+      (setq n (atoi (substr s 1 p)) d (atoi (substr s (+ p 4))))
+      (if (and (> n 0) (> d 0)) (list n d))))
+)
+
+;; placa din sectiunea de cofraj a elementului: (grosime-mm stanga dreapta),
+;; stanga = partea cu v mai mic; nil daca sectiunea nu are aripi
+(defun gb:placa (e / sec dr q fl us u1 u2 top t1 st dr2)
+  (if (setq sec (car (gb:g 'secs e)))
+    (progn
+      (setq dr (gb:g 'dir e)
+            q (mapcar '(lambda (p) (gb:uv dr (car p) (cadr p))) (nth 4 sec))
+            us (mapcar 'car q))
+      (foreach p q
+        (cond
+          ((< (cadr p) (- (gb:g 'va e) gb:*tol*)) (setq st T fl (cons (car p) fl)))
+          ((> (cadr p) (+ (gb:g 'vb e) gb:*tol*)) (setq dr2 T fl (cons (car p) fl)))))
+      (if fl
+        (progn
+          (setq u1 (apply 'min fl) u2 (apply 'max fl)
+                top (if (equal u1 (apply 'min us) gb:*tol*) u1 u2)
+                t1 (abs (- u2 u1)))
+          (if (> t1 gb:*tol*) (list t1 st dr2))))))
+)
+
+;; conturul sectiunii (layer 0): inima b x h, cu placa (aripi rupte) pe
+;; partile cerute; x0 = fata stanga a inimii, y0 = fata de sus.
+;; Intoarce (x-stanga x-dreapta) ale desenului.
+(defun gb:s-contur (x0 y0 W H tp sl sr / pts xe z1 z2)
+  (setq pts (list (list x0 (- y0 H))))
+  (if (and tp sl)
+    (setq xe (- x0 gb:*s-placa*) z1 (+ (- y0 tp) (* 0.358 tp)) z2 (+ (- y0 tp) (* 0.565 tp))
+          pts (append pts (list (list x0 (- y0 tp)) (list xe (- y0 tp)) (list xe z1) (list (- xe 61.0) z1)
+                                (list (+ xe 61.0) z2) (list xe z2) (list xe y0))))
+    (setq pts (append pts (list (list x0 y0)))))
+  (if (and tp sr)
+    (setq xe (+ x0 W gb:*s-placa*) z1 (- y0 (* 0.358 tp)) z2 (- y0 (* 0.565 tp))
+          pts (append pts (list (list xe y0) (list xe z1) (list (+ xe 61.0) z1) (list (- xe 61.0) z2)
+                                (list xe z2) (list xe (- y0 tp)) (list (+ x0 W) (- y0 tp)))))
+    (setq pts (append pts (list (list (+ x0 W) y0)))))
+  (setq pts (append pts (list (list (+ x0 W) (- y0 H)))))
+  (gb:poli gb:*l-elem* pts)
+  (list (if (and tp sl) (- x0 gb:*s-placa* 61.0) x0) (if (and tp sr) (+ x0 W gb:*s-placa* 61.0) (+ x0 W)))
+)
+
+;; etrierul in sectiune (FIER), de la fata de sus pana la hs; cu ciocurile
+;; la 45 de grade in coltul din dreapta sus, daca e cazul
+(defun gb:s-etrier (x0 y0 W hs ciocuri / c xr yt)
+  (setq c gb:*s-acop* xr (- (+ x0 W) c) yt (- y0 c))
+  (gb:dreptunghi gb:*l-fier* (+ x0 c) yt xr (+ (- y0 hs) c))
+  (if ciocuri
+    (progn
+      (gb:linie gb:*l-fier* (list (- xr 56.3) yt) (list (- xr 122.7) (- yt 66.4)))
+      (gb:linie gb:*l-fier* (list xr (- yt 56.2)) (list (- xr 66.4) (- yt 122.6)))))
+)
+
+;; n bare de diametru d (mm), la cota y, intre fetele etrierului; intoarce
+;; lista x-urilor
+(defun gb:s-bare (x0 W y n d / r xa xb k xs pl)
+  (setq r (* d 0.5 gb:*sc*)
+        xa (+ x0 gb:*s-acop* gb:*s-bara* r) xb (- (+ x0 W) gb:*s-acop* gb:*s-bara* r) k 0)
+  (repeat n
+    (setq xs (cons (if (> n 1) (+ xa (* k (/ (- xb xa) (1- n)))) (/ (+ xa xb) 2.0)) xs) k (1+ k)))
+  (foreach x xs
+    (setq pl (gb:o (entmakex (list '(0 . "CIRCLE") (cons 8 gb:*l-fier*) (list 10 x y 0.0) (cons 40 r)))))
+    (gb:hasura (vla-get-modelspace (vla-get-activedocument (vlax-get-acad-object))) pl "SOLID" 1.0 gb:*l-fier*))
+  (reverse xs)
+)
+
+;; eticheta barelor: linii verticale de la bare pana la yl, una orizontala
+;; spre stanga pana la xl, textul deasupra ei (centrat la xt sau, cu stanga
+;; = T, aliniat la stanga de la xt)
+(defun gb:s-eticheta (xs ybare yl xl xt txt lay stanga)
+  (foreach x xs (gb:linie gb:*l-elem* (list x ybare) (list x yl)))
+  (gb:linie gb:*l-elem* (list (apply 'max xs) yl) (list xl yl))
+  (gb:text lay (list xt (+ yl (if stanga 63.4 87.4))) 125.0 txt gb:*st-text* (if stanga "L" "MC") nil)
+)
+
+;; indicatorul de marca (cerc + "y"), cu linie spre etrier; tag = legatura
+;; pentru renumerotare (ex "C300x250" = etrierul centurii 30x25), sau nil
+(defun gb:s-indicator (doc xc y xs r tag / c m l)
+  (setq c (entmakex (list '(0 . "CIRCLE") (cons 8 gb:*l-elem*) (list 10 xc y 0.0) (cons 40 r)))
+        m (gb:text-marca (list xc y) "MC" tag)
+        l (gb:linie gb:*l-elem* (list (+ xc r) y) (list xs y)))
+  (gb:grup doc (mapcar 'gb:o (list c m l)))
+)
+
+;; textul de marca "y" (Otel marca, h150), cu legatura ascunsa tag
+(defun gb:text-marca (pt just tag / e)
+  (setq e (gb:text gb:*l-marca* pt 150.0 "y" gb:*st-text* just nil))
+  (if tag (gb:pune-tag e tag))
+  e
+)
+(defun gb:pune-tag (e tag / ed)
+  (regapp gb:*app-m*)
+  (setq ed (entget e))
+  (entmod (append ed (list (list -3 (list gb:*app-m* (cons 1000 tag))))))
+)
+
+;; cotele de nivel ale sectiunii (layer 0, stil 1:20), la dreapta lui xr
+(defun gb:s-nivel (doc ms xr y0 H top / ax d objs yl yv pl pr tsus tjos fc)
+  (setq ax (+ xr 491.4))
+  (setq d (gb:cota-stil ms (list xr y0) (list xr (- y0 H)) (list (+ xr 276.5) y0) (/ pi 2.0) gb:*ds-20*))
+  (setq objs (list d))
+  (foreach yl (list y0 (- y0 H))
+    (setq yv (+ yl 68.5)
+          pl (gb:o (gb:poli gb:*l-elem* (list (list (- ax 30.6) yv) (list ax yv) (list ax yl))))
+          pr (gb:o (gb:poli gb:*l-elem* (list (list ax yv) (list (+ ax 30.6) yv) (list ax yl)))))
+    (setq objs (append objs
+                       (list (gb:o (gb:linie gb:*l-elem* (list (- ax 73.0) yl) (list (+ ax 73.0) yl)))
+                             pl (gb:hasura ms pl "SOLID" 1.0 gb:*l-elem*) pr
+                             (gb:o (gb:linie gb:*l-elem* (list (- ax 30.6) yv) (list (+ ax 487.4) yv)))))))
+  (setq tsus (gb:o (gb:text gb:*l-elem* (list (+ ax 216.0) (+ y0 175.9)) 125.0 (gb:fmt-cota top) gb:*st-text* "MC" nil))
+        tjos (gb:o (gb:text gb:*l-elem* (list (+ ax 216.0) (+ (- y0 H) 175.9)) 125.0
+                            (gb:fmt-cota (- top (/ H gb:*sc* 1000.0))) gb:*st-text* "MC" nil)))
+  (setq fc (strcat (if (>= (- top (/ H gb:*sc* 1000.0)) 0.0) "+" "")
+                   "%<\\AcExpr (%<\\AcObjProp Object(%<\\_ObjId " (gb:id doc tsus) ">%).TextString>%-"
+                   "%<\\AcObjProp.16.2 Object(%<\\_ObjId " (gb:id doc d) ">%).Measurement \\f \"%lu6%ct8[0.01]\">%"
+                   "*0.01) \\f \"%lu6\">%"))
+  (vl-catch-all-apply 'vla-put-textstring (list tjos fc))
+  (gb:grup doc (append objs (list tsus tjos)))
+  (+ ax 216.0 300.0)
+)
+
+;; textele etrierului desfasurat (cerc, marca y, diametru, L= ca FIELD legat
+;; de lungimea poliliniei / 2.5); X,Yb = coltul stanga-jos al etrierului
+(defun gb:etr-texte (doc pl X Yb diam tag / c m dt lg)
+  (setq c (entmakex (list '(0 . "CIRCLE") (cons 8 gb:*l-elem*) (list 10 (- X 303.3) (- Yb 332.1) 0.0) '(40 . 140.7)))
+        m (gb:text-marca (list (- X 300.0) (- Yb 401.2)) "BC" tag)
+        dt (gb:text gb:*l-diam* (list (- X 56.8) (- Yb 306.6)) 125.0 diam gb:*st-text* "L" nil)
+        lg (gb:text gb:*l-lung* (list (+ X 9.4) (- Yb 522.2)) 125.0
+                     (strcat "L=" (gb:rtos (* 0.0004 (vlax-curve-getdistatparam pl (vlax-curve-getendparam pl))) 2) "m")
+                     gb:*st-text* "L" nil))
+  (vl-catch-all-apply 'vla-put-textstring
+    (list (gb:o lg) (strcat "L=%<\\AcObjProp.16.2 Object(%<\\_ObjId " (gb:id doc pl)
+                            ">%).Length \\f \"%lu6%ct8[0.0004]\">%m")))
+  (list c m dt lg)
+)
+
+;; etrier inchis desfasurat (grupul definitiei): X,Y = coltul stanga-sus,
+;; Ws x Hs = laturile la scara; colturi rotunjite, ciocuri de 10 cm la 45
+;; de grade; cotele ca in desenele manuale. buc = text "xxx buc." (centuri)
+(defun gb:etrier-inchis (doc ms X Y Ws Hs diam tag buc / r c pl d1 d2 d3 d4 d5 tx bt)
+  (setq r gb:*r-colt* c (/ gb:*cioc-e* (sqrt 2.0)))
+  (setq pl (entmakex
+             (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") (cons 8 gb:*l-fier*) '(100 . "AcDbPolyline")
+                   '(90 . 12) '(70 . 0)
+                   (list 10 (- (+ X Ws) c) (- Y r c)) '(42 . 0.0)
+                   (list 10 (+ X Ws) (- Y r)) '(42 . 0.414214)
+                   (list 10 (- (+ X Ws) r) Y) '(42 . 0.0)
+                   (list 10 (+ X r) Y) '(42 . 0.414214)
+                   (list 10 X (- Y r)) '(42 . 0.0)
+                   (list 10 X (+ (- Y Hs) r)) '(42 . 0.414214)
+                   (list 10 (+ X r) (- Y Hs)) '(42 . 0.0)
+                   (list 10 (- (+ X Ws) r) (- Y Hs)) '(42 . 0.414214)
+                   (list 10 (+ X Ws) (+ (- Y Hs) r)) '(42 . 0.0)
+                   (list 10 (+ X Ws) (- Y r)) '(42 . 0.414214)
+                   (list 10 (- (+ X Ws) r) Y) '(42 . 0.0)
+                   (list 10 (- (+ X Ws) r c) (- Y c)) '(42 . 0.0))))
+  (setq d1 (gb:cota-stil ms (list X (- Y r)) (list (+ X Ws) (- Y r)) (list (+ X Ws) Y) 0.0 gb:*ds-etr*)
+        d2 (vla-adddimaligned ms (vlax-3d-point (list (- (+ X Ws) r c) (- Y c) 0.0))
+                              (vlax-3d-point (list (- (+ X Ws) r) Y 0.0))
+                              (vlax-3d-point (list (- (+ X Ws) r) Y 0.0)))
+        d3 (gb:cota-stil ms (list (- (+ X Ws) 6.2) (- Y Hs)) (list (- (+ X Ws) r) Y) (list (+ X Ws 268.1) Y) (/ pi 2.0) gb:*ds-etr*)
+        d4 (gb:cota-stil ms (list X (- Y Hs)) (list X Y) (list X Y) (/ pi 2.0) gb:*ds-etr*)
+        d5 (gb:cota-stil ms (list X (- Y Hs)) (list (+ X Ws) (- Y Hs)) (list (+ X Ws) (- Y Hs)) 0.0 gb:*ds-etr*))
+  (vla-put-layer d1 gb:*l-elem*) (vla-put-layer d2 gb:*l-elem*)
+  (if (tblsearch "DIMSTYLE" gb:*ds-etr*) (vl-catch-all-apply 'vla-put-stylename (list d2 gb:*ds-etr*)))
+  (setq tx (gb:etr-texte doc (gb:o pl) X (- Y Hs) diam tag))
+  (if buc (setq bt (list (gb:text gb:*l-buc-c* (list (+ X 380.9) (- Y Hs 708.4)) 125.0 buc gb:*st-axe* "MC" nil))))
+  (gb:grup doc (append (list (gb:o pl) d1 d2 d3 d4 d5) (mapcar 'gb:o (append tx bt))))
+)
+
+;; etrier deschis (buiandrugi): trei laturi, ciocuri intoarse la 180 de
+;; grade; ciocurile adauga impreuna 20 cm. X,Yb = coltul stanga-jos.
+(defun gb:etrier-u (doc ms X Yb Ws Hs diam tag / ra hk yt pl d1 d2 d3 tx)
+  (setq ra 61.5 hk (- (+ gb:*cioc-e* ra) (* pi ra)) yt (- (+ Yb Hs) ra))
+  (setq pl (entmakex
+             (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") (cons 8 gb:*l-fier*) '(100 . "AcDbPolyline")
+                   '(90 . 8) '(70 . 0)
+                   (list 10 (+ X ra ra) (- yt hk)) '(42 . 0.0)
+                   (list 10 (+ X ra ra) yt) '(42 . 1.0)
+                   (list 10 X yt) '(42 . 0.0)
+                   (list 10 X Yb) '(42 . 0.0)
+                   (list 10 (+ X Ws) Yb) '(42 . 0.0)
+                   (list 10 (+ X Ws) yt) '(42 . 1.0)
+                   (list 10 (- (+ X Ws) ra ra) yt) '(42 . 0.0)
+                   (list 10 (- (+ X Ws) ra ra) (- yt hk)) '(42 . 0.0))))
+  (setq d1 (gb:cota-stil ms (list (+ X ra) (+ Yb Hs)) (list X Yb) (list X Yb) (/ pi 2.0) gb:*ds-etr*)
+        d2 (gb:cota-stil ms (list (- (+ X Ws) ra) (+ Yb Hs)) (list (+ X Ws) Yb) (list (+ X Ws) Yb) (/ pi 2.0) gb:*ds-etr*)
+        d3 (gb:cota-stil ms (list X Yb) (list (+ X Ws) Yb) (list (+ X Ws) Yb) 0.0 gb:*ds-etr*))
+  (setq tx (gb:etr-texte doc (gb:o pl) X Yb diam tag))
+  (gb:grup doc (append (list (gb:o pl) d1 d2 d3) (mapcar 'gb:o tx)))
+)
+
+;; chenarul unei sectiuni (sau al unui grup de sectiuni)
+(defun gb:s-chenar (x1 y1 x2 y2)
+  (gb:dreptunghi gb:*l-chenar-s* x1 y1 x2 y2)
+)
+
+;; -------------------------------------------------------------------------
+;; o sectiune completa (fara etrierul desfasurat): contur, etrier(i),
+;; bare, etichete, cota de latime, indicator(i). x0,y0 = inima stanga-sus.
+;; s = lista de proprietati:
+;;   'b 'h (mm), 'placa (t st dr) sau nil, 'sus (n d) 'jos (n d),
+;;   'tip "G"/"B"/"C", 'hc 'bc (centura, la buiandrugi), 'cent (n d) bare
+;;   centura la buiandrugi, 'tag-c tag-ul etrierului centurii,
+;;   'tag-e tag-ul etrierului propriu, 'tag-b tag-ul barelor (centuri)
+;; Intoarce (xstanga xdreapta ybaza) ale desenului.
+;; -------------------------------------------------------------------------
+(defun gb:sectiune (doc ms x0 y0 s / W H pl ext xl xr ys yb sus jos tp sl sr hc yc xsus xjos cent)
+  (setq W (* gb:*sc* (gb:g 'b s)) H (* gb:*sc* (gb:g 'h s)) pl (gb:g 'placa s)
+        tp (if pl (* gb:*sc* (car pl))) sl (if pl (cadr pl)) sr (if pl (caddr pl)))
+  (setq ext (gb:s-contur x0 y0 W H tp sl sr) xl (car ext) xr (cadr ext))
+  (setq sus (gb:g 'sus s) jos (gb:g 'jos s))
+  (cond
+    ;; buiandrug: etrierul centurii sus, al buiandrugului pe toata inaltimea
+    ((= (gb:g 'tip s) "B")
+     (setq hc (* gb:*sc* (gb:g 'hc s)) cent (gb:g 'cent s))
+     (gb:s-etrier x0 y0 W hc T)
+     (gb:s-etrier x0 y0 W H nil)
+     (setq yc (+ (- y0 hc) gb:*s-acop* gb:*s-bara*))
+     (if cent
+       (progn
+         (setq xsus (gb:s-bare x0 W (- y0 gb:*s-acop* gb:*s-bara* (* 1.25 (cadr cent))) (/ (car cent) 2) (cadr cent)))
+         (gb:s-bare x0 W (+ yc (* 1.25 (cadr cent))) (- (car cent) (/ (car cent) 2)) (cadr cent))
+         (gb:s-eticheta (append xsus (list (- (+ x0 W) gb:*s-acop* gb:*s-bara* (* 1.25 (cadr cent)))))
+                        (+ yc (* 1.25 (cadr cent))) (+ y0 279.0) (- x0 785.4) (- x0 730.4)
+                        (strcat (itoa (car cent)) "%%C" (itoa (cadr cent)) " din centura") gb:*l-elem* T)))
+     (if jos
+       (progn
+         (setq xjos (gb:s-bare x0 W (+ (- y0 H) gb:*s-acop* gb:*s-bara* (* 1.25 (cadr jos))) (car jos) (cadr jos)))
+         (gb:s-eticheta xjos (+ (- y0 H) gb:*s-acop* gb:*s-bara* (* 1.25 (cadr jos))) (- y0 H 544.1)
+                        (- x0 513.9) (- x0 239.4) (strcat (itoa (car jos)) "%%C" (itoa (cadr jos))) gb:*l-diam* nil)))
+     ;; marca de sus: etrierul centurii; cea de jos: etrierul buiandrugului
+     (gb:s-indicator doc (- (+ x0 gb:*s-acop*) 612.7) (+ (- y0 hc) gb:*s-acop* 93.5)
+                     (+ x0 gb:*s-acop*) 156.3 (gb:g 'tag-c s))
+     (gb:s-indicator doc (- (+ x0 gb:*s-acop*) 423.4) (+ (/ (+ (- y0 hc) (- y0 H)) 2.0) gb:*s-acop*)
+                     (+ x0 gb:*s-acop*) 149.3 (gb:g 'tag-e s)))
+    (T
+     (gb:s-etrier x0 y0 W H T)
+     (if sus
+       (progn
+         (setq ys (- y0 gb:*s-acop* gb:*s-bara* (* 1.25 (cadr sus))))
+         (setq xsus (gb:s-bare x0 W ys (car sus) (cadr sus)))
+         (gb:s-eticheta xsus ys (+ y0 221.6) (- x0 497.8) (- x0 245.4)
+                        (strcat (itoa (+ (car sus) (if (= (gb:g 'tip s) "C") (car jos) 0))) "%%C" (itoa (cadr sus)))
+                        gb:*l-elem* nil)))
+     (if jos
+       (progn
+         (setq yb (+ (- y0 H) gb:*s-acop* gb:*s-bara* (* 1.25 (cadr jos))))
+         (setq xjos (gb:s-bare x0 W yb (car jos) (cadr jos)))
+         (if (/= (gb:g 'tip s) "C")
+           (gb:s-eticheta xjos yb (- y0 H 544.1) (- x0 513.9) (- x0 239.4)
+                          (strcat (itoa (car jos)) "%%C" (itoa (cadr jos))) gb:*l-diam* nil)
+           ;; la centuri, eticheta de sus le cuprinde pe toate
+           (foreach x xjos (gb:linie gb:*l-elem* (list x yb) (list x ys))))))
+     (if (= (gb:g 'tip s) "C")
+       (gb:s-indicator doc (- x0 497.8 149.3) (+ y0 221.6) (- x0 497.8) 149.3 (gb:g 'tag-b s)))
+     (gb:s-indicator doc (- (+ x0 gb:*s-acop*) 450.6) (+ (- y0 H) gb:*s-acop* 108.9)
+                     (+ x0 gb:*s-acop*) 149.3 (gb:g 'tag-e s))))
+  ;; cota de latime, sub sectiune
+  (gb:cota-stil ms (list x0 (- y0 H)) (list (+ x0 W) (- y0 H)) (list (+ x0 W) (- y0 H 307.6)) 0.0 gb:*ds-20*)
+  (list (min xl (- x0 1015.0)) xr (- y0 H))
+)
+
+;; -------------------------------------------------------------------------
+;; DETALIUL UNEI CENTURI (la generare): titlu, sectiune, etrier desfasurat
+;; cu "xxx buc."; intoarce latimea ocupata
+;; -------------------------------------------------------------------------
+(defun gb:detaliu-centura (doc ms c ox oy top arm / b h pl x0 r xr Ws Hs tag)
+  (setq b (gb:g 'b c) h (gb:g 'h c) pl (gb:placa c)
+        x0 (+ ox 1300.0) tag (strcat "C" (gb:rtos b 0) "x" (gb:rtos h 0)))
+  (gb:text gb:*l-elem* (list (+ x0 (* 0.5 gb:*sc* b)) (+ oy 918.8)) 225.0
+           (strcat (gb:g 'id c) " " (gb:cm b) "x" (gb:cm h)) gb:*st-axe* "MC" nil)
+  (gb:text gb:*l-elem* (list (+ x0 (* 0.5 gb:*sc* b)) (+ oy 618.4)) 125.0 "Sc 1:20" gb:*st-text* "MC" nil)
+  (setq r (gb:sectiune doc ms x0 oy
+                       (list (cons 'tip "C") (cons 'b b) (cons 'h h) (cons 'placa pl)
+                             (cons 'sus (list (/ (car arm) 2) (cadr arm)))
+                             (cons 'jos (list (- (car arm) (/ (car arm) 2)) (cadr arm)))
+                             (cons 'tag-e tag) (cons 'tag-b (strcat "CB" (itoa (car arm)) "x" (itoa (cadr arm)))))))
+  (setq xr (gb:s-nivel doc ms (cadr r) oy (* gb:*sc* h) top))
+  (setq Ws (* gb:*sc* (- b 50.0)) Hs (* gb:*sc* (- h 50.0)))
+  (gb:etrier-inchis doc ms x0 (- (caddr r) 888.0) Ws Hs (strcat "etr " gb:*diam* "/15") tag "xxx buc.")
+  (- xr ox -300.0)
+)
+
+;; grupul barelor drepte ale centurilor (4%%C12, L=12.00m, "xxx buc.")
+(defun gb:bare-centura (doc ms bx by arm / l1 l2 s1 s2 c m dt lg bt)
+  (setq l1 (gb:linie gb:*l-fier* (list (+ bx 24.4) by) (list (+ bx 1324.3) by))
+        l2 (gb:linie gb:*l-fier* (list (+ bx 1409.9) by) (list (+ bx 2458.8) by)))
+  (setq s1 (entmakex (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") (cons 8 gb:*l-elem*) '(100 . "AcDbPolyline")
+                           '(90 . 3) '(70 . 0)
+                           (list 10 (+ bx 1286.6) (- by 80.8)) '(42 . 0.793)
+                           (list 10 (+ bx 1324.3) by) '(42 . -0.793)
+                           (list 10 (+ bx 1362.0) (+ by 80.8)) '(42 . 0.0)))
+        s2 (entmakex (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") (cons 8 gb:*l-elem*) '(100 . "AcDbPolyline")
+                           '(90 . 3) '(70 . 0)
+                           (list 10 (+ bx 1372.2) (- by 80.8)) '(42 . 0.793)
+                           (list 10 (+ bx 1409.9) by) '(42 . -0.793)
+                           (list 10 (+ bx 1447.6) (+ by 80.8)) '(42 . 0.0))))
+  (setq c (entmakex (list '(0 . "CIRCLE") (cons 8 gb:*l-elem*) (list 10 (+ bx 444.5) (+ by 213.8) 0.0) '(40 . 154.2)))
+        m (gb:text-marca (list (+ bx 444.5) (+ by 139.0)) "BC" (strcat "CB" (itoa (car arm)) "x" (itoa (cadr arm))))
+        dt (gb:text gb:*l-diam* (list (+ bx 895.6) (+ by 122.3)) 125.0 (strcat (itoa (car arm)) "%%C" (itoa (cadr arm))) gb:*st-text* "M" nil)
+        lg (gb:text gb:*l-lung* (list (+ bx 895.6) (- by 175.4)) 125.0 "L=12.00m" gb:*st-text* "M" nil)
+        bt (gb:text gb:*l-buc-c* (list (+ bx 1784.5) (- by 175.4)) 125.0 "xxx buc." gb:*st-axe* "M" nil))
+  (gb:grup doc (mapcar 'gb:o (list l1 l2 s1 s2 c m dt lg bt)))
+)
+
+;; =========================================================================
+;; DATELE ASCUNSE DE PE CONTURUL DESFASURATEI ("cheie=valoare")
+;; =========================================================================
+(defun gb:date-scrie (lst)
+  (regapp gb:*app*)
+  (list -3 (cons gb:*app* (mapcar '(lambda (kv) (cons 1000 (strcat (car kv) "=" (cdr kv)))) lst)))
+)
+(defun gb:date-citeste (e / x r p)
+  (if (setq x (cdr (assoc -3 (entget e (list gb:*app*)))))
+    (foreach it (cdr (car x))
+      (if (and (= (car it) 1000) (setq p (vl-string-search "=" (cdr it))))
+        (setq r (cons (cons (substr (cdr it) 1 p) (substr (cdr it) (+ p 2))) r)))))
+  r
+)
+(defun gb:d (k lst) (cdr (assoc k lst)))
+
+;; =========================================================================
+;; COMANDA: SectiuniGrinzi
+;; Selectati desfasuratele (cu numerele sectiunilor scrise in locul lui
+;; "xx"), apoi punctul de inserare. Pentru fiecare numar se deseneaza
+;; sectiunea la 1:20, din datele desfasuratei: dimensiunile si placa (luate
+;; de pe cofraj la generare), barele de sus/jos din grupurile de armatura
+;; de sub element, pasii etrierilor din textele "etr." ale desfasuratei.
+;; Sectiunile aceluiasi element cu acelasi etrier sunt in acelasi chenar,
+;; cu un singur etrier desfasurat. La buiandrugi: etrierul centurii sus
+;; (marca lui se leaga de detaliul centurii) si etrierul deschis al
+;; buiandrugului; armatura centurii se intreaba.
+;; =========================================================================
+(defun gb:grupuri-ent (e / r)
+  (foreach it (entget e)
+    (if (and (= (car it) 330) (= (cdr (assoc 0 (entget (cdr it)))) "GROUP")) (setq r (cons (cdr it) r))))
+  r
+)
+(defun gb:membri (g / r)
+  (foreach it (entget g) (if (= (car it) 340) (setq r (cons (cdr it) r))))
+  r
+)
+
+;; fata de jos a conturului in dreptul lui x (sectiune variabila)
+(defun gb:jos-contur (pts x ytop / n k a b r)
+  (setq n (length pts) k 0)
+  (repeat n
+    (setq a (nth k pts) b (nth (rem (1+ k) n) pts) k (1+ k))
+    (if (and (equal (cadr a) (cadr b) 1.0) (< (cadr a) (- ytop 1.0))
+             (<= (- (min (car a) (car b)) 1.0) x (+ (max (car a) (car b)) 1.0))
+             (or (null r) (> (cadr a) r)))
+      (setq r (cadr a))))
+  r
+)
+
+(defun c:SectiuniGrinzi ( / *error* doc ms ss i e ed lay tip el bare zone sect x y g n d pts bb data s
+                            ytop ybot h r k cadre key c p px py arm cent ds0 b nr lst val txt pas)
+  (setq doc (vla-get-activedocument (vlax-get-acad-object)) ms (vla-get-modelspace doc))
+  (defun *error* (msg)
+    (if ds0 (gb:stil-cota doc ds0))
+    (vla-endundomark doc)
+    (if (and msg (not (wcmatch (strcase msg) "*CANCEL*,*QUIT*,*EXIT*"))) (princ (strcat "\nEroare: " msg)))
+    (princ))
+  (setq gb:*err* nil)
+  (princ "\nSelectati desfasuratele (cu numerele sectiunilor scrise in locul lui xx): ")
+  (if (setq ss (ssget))
+    (progn
+      (setq i 0)
+      (repeat (sslength ss)
+        (setq e (ssname ss i) ed (entget e) tip (cdr (assoc 0 ed)) lay (strcase (cdr (assoc 8 ed))) i (1+ i))
+        (cond
+          ;; conturul unei desfasurate generate (cu date)
+          ((and (= tip "LWPOLYLINE") (= lay "0") (setq data (gb:date-citeste e)))
+           (setq pts (car (gb:varfuri ed)))
+           (setq el (cons (list e pts (apply 'min (mapcar 'car pts)) (apply 'max (mapcar 'car pts))
+                                (apply 'min (mapcar 'cadr pts)) (apply 'max (mapcar 'cadr pts)) data)
+                          el)))
+          ;; barele: polilinii FIER cu ciocuri, din grupuri cu diametru (fara pas)
+          ((and (= tip "LWPOLYLINE") (= lay (strcase gb:*l-fier*)) (= (length (setq pts (car (gb:varfuri ed)))) 4))
+           (setq nr nil)
+           (foreach g (gb:grupuri-ent e)
+             (foreach m (gb:membri g)
+               (if (and (null nr) (= (strcase (cdr (assoc 8 (entget m)))) (strcase gb:*l-diam*))
+                        (= (cdr (assoc 0 (entget m))) "TEXT")
+                        (not (vl-string-search "/" (cdr (assoc 1 (entget m))))))
+                 (setq nr (gb:n-diam (cdr (assoc 1 (entget m))))))))
+           (if nr
+             (setq bare (cons (list (min (car (nth 1 pts)) (car (nth 2 pts))) (max (car (nth 1 pts)) (car (nth 2 pts)))
+                                    (cadr (nth 1 pts)) (< (cadr (nth 0 pts)) (cadr (nth 1 pts))) nr)
+                              bare))))
+          ;; textele zonelor de etrieri ("etr. %%C8/10")
+          ((and (= tip "TEXT") (= lay "0") (wcmatch (strcase (cdr (assoc 1 ed))) "ETR.*"))
+           (setq p (cdr (assoc 11 ed)) zone (cons (list (car p) (cadr p) (cdr (assoc 1 ed))) zone)))
+          ;; numerele sectiunilor
+          ((and (= tip "TEXT") (= lay (strcase gb:*l-sect*)))
+           (setq txt (vl-string-trim " " (cdr (assoc 1 ed))))
+           (if (and (/= txt "") (not (vl-string-search "-" txt)) (not (wcmatch (strcase txt) "XX*")))
+             (progn
+               (setq p (if (/= 0 (cond ((cdr (assoc 72 ed))) (0))) (cdr (assoc 11 ed)) (cdr (assoc 10 ed))))
+               (setq sect (cons (list txt (+ (car p) 40.0) (cadr p)) sect)))))))
+      ;; fiecare numar, la elementul lui (o singura data)
+      (foreach sc sect
+        (setq x (cadr sc) y (caddr sc) c nil)
+        (foreach o el
+          (if (and (null c) (<= (nth 2 o) x (nth 3 o)) (<= (- (nth 4 o) 1500.0) y (+ (nth 5 o) 600.0)))
+            (setq c o)))
+        (cond
+          ((null c) (gb:err (list x y) (strcat "Sectiunea " (car sc) ": nu e pe o desfasurata generata (fara date) - regenerati desfasurata")))
+          ((not (vl-some '(lambda (q) (and (= (car q) (car sc)) (eq (cadr q) (car c)))) lst))
+           (setq lst (cons (list (car sc) (car c) x c) lst)))))
+      ;; armatura centurii, pentru buiandrugi
+      (if (vl-some '(lambda (q) (= (gb:d "tip" (nth 6 (nth 3 q))) "B")) lst)
+        (progn
+          (setq s (getstring (strcat "\nArmatura centurii la buiandrugi (sus si jos) <" gb:*arm-c* ">: ")))
+          (if (and (/= s "") (gb:n-diam s)) (setq gb:*arm-c* (strcase s)))))
+      (setq arm (gb:n-diam gb:*arm-c*))
+      ;; datele fiecarei sectiuni, grupate pe element + inaltime
+      (foreach q lst
+        (setq c (nth 3 q) x (nth 2 q) data (nth 6 c) ytop (nth 5 c)
+              ybot (gb:jos-contur (nth 1 c) x ytop) h (- ytop ybot) b (atof (gb:d "b" data))
+              s (list (cons 'tip (gb:d "tip" data)) (cons 'b b) (cons 'h h)
+                      (cons 'placa (if (/= (gb:d "placa" data) "")
+                                     (read (strcat "(" (gb:d "placa" data) ")"))))))
+        ;; barele in dreptul sectiunii
+        (foreach br bare
+          (if (and (<= (- (car br) 30.0) x (+ (cadr br) 30.0)) (< (caddr br) (nth 4 c)) (> (caddr br) (- (nth 4 c) 4000.0))
+                   (<= (nth 2 c) (car br)) (>= (+ (nth 3 c) 1.0) (cadr br)))
+            (if (cadddr br)
+              (if (not (assoc 'sus s)) (setq s (append s (list (cons 'sus (nth 4 br))))))
+              (if (not (assoc 'jos s)) (setq s (append s (list (cons 'jos (nth 4 br)))))))))
+        (if (= (gb:d "tip" data) "B")
+          (setq s (append s (list (cons 'hc (atof (gb:d "hc" data))) (cons 'cent arm)
+                                  (cons 'tag-c (gb:d "tagc" data))))))
+        ;; pasii etrierilor, din textele zonelor elementului
+        (setq pas nil)
+        (foreach z zone
+          (if (and (<= (nth 2 c) (car z) (nth 3 c)) (<= ytop (cadr z) (+ ytop 400.0))
+                   (setq p (vl-string-search "/" (caddr z))))
+            (if (not (member (substr (caddr z) (+ p 2)) pas)) (setq pas (cons (substr (caddr z) (+ p 2)) pas)))))
+        (setq pas (gb:sort (if pas pas '("15")) '(lambda (a b) (< (atoi a) (atoi b)))))
+        (setq s (append s (list (cons 'etr (strcat "etr " gb:*diam* "/" (apply 'strcat (cons (car pas) (mapcar '(lambda (v) (strcat "/" v)) (cdr pas))))))
+                                (cons 'nume (gb:d "nume" data)) (cons 'top (atof (gb:d "top" data))))))
+        (if (not (gb:g 'jos s))
+          (gb:err (list x (nth 4 c)) (strcat "Sectiunea " (car q) " (" (gb:d "nume" data) "): nu am gasit barele de jos sub element")))
+        (if (and (= (gb:d "tip" data) "G") (not (gb:g 'sus s)))
+          (gb:err (list x (nth 4 c)) (strcat "Sectiunea " (car q) " (" (gb:d "nume" data) "): nu am gasit barele de sus sub element")))
+        (setq key (list (car c) (fix (+ h 0.5))))
+        (if (setq g (assoc key cadre))
+          (setq cadre (subst (append g (list (cons (car q) s))) g cadre))
+          (setq cadre (append cadre (list (list key (cons (car q) s)))))))
+      (if (null cadre)
+        (alert "Nu am gasit nicio sectiune numerotata pe desfasuratele generate.")
+        (progn
+          ;; cadrele in ordinea primei sectiuni
+          (setq cadre (mapcar '(lambda (g) (cons (car g) (gb:sort (cdr g) '(lambda (a b) (< (atoi (car a)) (atoi (car b)))))))
+                              cadre))
+          (setq cadre (gb:sort cadre '(lambda (a b) (< (atoi (car (cadr a))) (atoi (car (cadr b)))))))
+          (if (setq p (getpoint "\nColtul stanga-sus al primului chenar de sectiuni: "))
+            (progn
+              (vla-startundomark doc)
+              (setq ds0 (getvar "DIMSTYLE"))
+              (gb:straturi)
+              (setq p (trans p 1 0) px (car p) py (cadr p))
+              (foreach g cadre
+                (setq px (+ (gb:cadru-sectiuni doc ms (cdr g) px py) 500.0)))
+              (gb:stil-cota doc ds0)
+              (setq ds0 nil)
+              (vla-endundomark doc)
+              (princ (strcat "\nAm desenat " (itoa (length cadre)) " chenare de sectiuni."))
+              (if gb:*err*
+                (alert (strcat "Probleme gasite:\n\n"
+                               (apply 'strcat (mapcar '(lambda (x) (strcat (cadr x) "\n")) (reverse gb:*err*))))))))))))
+  (princ)
+)
+
+;; un chenar: sectiunile (num . props) ale aceluiasi element, cu acelasi
+;; etrier; intoarce marginea din dreapta
+(defun gb:cadru-sectiuni (doc ms lst px py / ty y0 x0 x0p s W r xr xmin ybot xe Ws Hs X Yt yfin p)
+  (setq ty (- py 251.6) y0 (- ty 963.3) x0 (+ px 1295.0) x0p x0 ybot y0)
+  (foreach q lst
+    (setq s (cdr q) W (* gb:*sc* (gb:g 'b s)))
+    (gb:text gb:*l-sect* (list (+ x0 (* 0.5 W)) ty) 300.0 (strcat (car q) "-" (car q)) gb:*st-text* "MC" nil)
+    (gb:text gb:*l-elem* (list (+ x0 (* 0.5 W) -20.0) (- ty 335.2)) 125.0 "Sc 1:20" gb:*st-text* "MC" nil)
+    (setq r (gb:sectiune doc ms x0 y0 s) xr (cadr r) ybot (min ybot (caddr r)))
+    (setq x0 (+ xr 1215.0)))
+  ;; cotele de nivel, la ultima sectiune
+  (setq xe (gb:s-nivel doc ms xr y0 (* gb:*sc* (gb:g 'h s)) (gb:g 'top s)))
+  ;; etrierul desfasurat (definitia), sub prima sectiune
+  (setq s (cdr (car lst))
+        Ws (* gb:*sc* (- (gb:g 'b s) 50.0)) Hs (* gb:*sc* (- (gb:g 'h s) 50.0))
+        X x0p Yt (- ybot 888.0))
+  (if (= (gb:g 'tip s) "B")
+    (gb:etrier-u doc ms X (- Yt Hs) Ws Hs (gb:g 'etr s) nil)
+    (gb:etrier-inchis doc ms X Yt Ws Hs (gb:g 'etr s) nil nil))
+  (setq yfin (- Yt Hs 597.0))
+  (gb:s-chenar px py (max (+ xe 110.0) (+ X Ws 900.0)) yfin)
+  (max (+ xe 110.0) (+ X Ws 900.0))
+)
+
+(princ "\nGenerare grinzi si buiandrugi incarcat. Comenzi: GenerareGrinziBuiandrugi, SectiuniGrinzi")
 (princ)

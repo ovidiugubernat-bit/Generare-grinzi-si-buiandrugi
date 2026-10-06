@@ -4,7 +4,10 @@ LISP AutoCAD (2024) care desfasoara grinzile si buiandrugii de pe planul de cofr
 
 | Fisier | Comanda | Ce face |
 | --- | --- | --- |
-| `Generare grinzi si buiandrugi.lsp` | `GenerareGrinziBuiandrugi` | Desfasoara toate grinzile (G..) si buiandrugii (B..) din planul selectat si semnaleaza greselile gasite pe plan |
+| `Generare grinzi si buiandrugi.lsp` | `GenerareGrinziBuiandrugi` | Desfasoara toate grinzile (G..) si buiandrugii (B..) din planul selectat, plus detaliile centurilor, si semnaleaza greselile gasite pe plan |
+| `Generare grinzi si buiandrugi.lsp` | `SectiuniGrinzi` | Deseneaza sectiunile (1:20) pentru numerele scrise pe desfasurate in locul lui `xx` |
+| `Renumeroteaza Marci Grinzi.lsp` | `RenumeroteazaMarciGrinzi` | Renumeroteaza marcile (bare lungi, etrieri); marcile legate (etrierul centurii din sectiunea buiandrugului) primesc singure numarul |
+| `Extras grinzi.lsp` | `ExtrasGrinzi`, `GasesteMarcaGrinzi` | Extrasul de armatura (Excel sau tabel AutoCAD); avertizeaza cand o marca e sarita |
 
 Se incarca la fel ca celelalte lisp-uri (vezi `acaddoc.lsp` din repo-ul de placi: puneti fisierul
 in acelasi folder).
@@ -99,3 +102,45 @@ grinda cu sectiune variabila, numita `G1 30x50(30x40)`:
   la nivelul ei peste stalp pana la cealalta fata, cu ciocul ei
 - cate o sectiune `xx` pe fiecare tronson, in prima lui deschidere
 - grupul de cofraj se verifica fata de inaltimea tronsonului in dreptul caruia sta
+
+## Detaliile centurilor (la generare)
+
+La sfarsitul randului de desfasurate, cate un detaliu pentru fiecare tip de centura de pe plan (dupa textele C..):
+sectiunea la 1:20 (placa din grupul de cofraj al centurii), 2+2 bare, etrierul in sectiune, cotele de nivel, etrierul
+desfasurat (laturi = centura - 5 cm, `etr %%C8/15`, L= field) cu `xxx buc.` pe `Bucati etrieri centuri`, si sub ele
+grupul barelor drepte (`4%%C12`, `L=12.00m`, `xxx buc.`). Armatura centurii se intreaba la pornire (`<4%%C12>`).
+Bucatile `xxx` se completeaza manual; extrasul avertizeaza daca au ramas necompletate.
+
+La buiandrugi, langa fiecare etrier (la 25 mm) e figurat etrierul centurii pe `Otel centuri global` (de la fierul de
+jos al centurii pana sus), cat se vede pe zidarie, fara sa intre in stalpi. Liniile acestea nu se numara.
+
+## Sectiunile (`SectiuniGrinzi`)
+
+1. Dupa generare (si eventuale corecturi), scrieti numerele sectiunilor in locul lui `xx` (sus si jos acelasi numar).
+2. `SectiuniGrinzi`: selectati desfasuratele, apoi coltul stanga-sus al primului chenar.
+
+Pentru fiecare numar se deseneaza, intr-un `Chenar pentru sectiuni etrieri`, sectiunea la 1:20: titlul `N-N`,
+`Sc 1:20`, conturul cu placa (din grupul de cofraj, cu rupere; fara placa daca planul nu are grupuri de cofraj),
+etrierul cu ciocuri, barele de sus si de jos (din grupurile de armatura de sub element, in dreptul sectiunii), etichetele,
+cota de latime, cotele de nivel (cota de jos = field) si indicatorul de marca. Sub ea, etrierul desfasurat (grupul
+definitiei: laturi = sectiunea - 5 cm, colturi rotunjite, ciocuri de 10 cm, cotele, marca `y`, `etr %%C8/10/15` sau
+`/15` dupa pasii din desfasurata, L= field). Sectiunile aceluiasi element cu acelasi etrier stau in acelasi chenar,
+cu un singur etrier desfasurat.
+
+La buiandrugi: etrierul centurii sus (cu cele 4 bare ale centurii - armatura se intreaba, ex. `4%%C12`, `6%%C12` =
+jumatate sus, jumatate jos) si etrierul buiandrugului pe toata inaltimea; doua marci - sus cea a etrierului centurii,
+jos cea a buiandrugului. Etrierul desfasurat al buiandrugului e deschis: trei laturi, ciocuri intoarse care adauga
+impreuna 20 cm.
+
+Datele (dimensiuni, placa, centura) sunt salvate ascuns pe conturul desfasuratei la generare, deci sectiunile merg doar
+pe desfasurate generate cu versiunea aceasta.
+
+## Renumerotare si extras (modificari)
+
+- Marcile generate au o legatura ascunsa (XDATA `GBMARCA`, ex. `C300x250` = etrierul centurii 30x25). La
+  `RenumeroteazaMarciGrinzi`, marca etrierului centurii din sectiunea unui buiandrug primeste numarul etrierului din
+  detaliul centurii; nu mai e nevoie de `Marci otel de corectat`. Legaturile fara definitie sunt semnalate.
+- `ExtrasGrinzi`: un `Chenar etrieri` fara marca isi afla marca din numerele sectiunilor din el (ca la renumerotare),
+  deci grupul cerc+marca de pe desfasurata nu mai e obligatoriu. Avertismente noi: etrieri nenumarati (fara marca si
+  fara sectiune, sau in afara oricarui Chenar etrieri), definitii sau bare care nu ajung in tabel, numere lipsa in sirul
+  marcilor, marci nerenumerotate (`y`), bucati necompletate (`xxx buc.`).
