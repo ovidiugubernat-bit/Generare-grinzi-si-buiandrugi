@@ -720,14 +720,18 @@
 ;; bara cu ciocuri (FIER), cotele ciocurilor si a lungimii ("Fier stalpi 50"),
 ;; cercul marcii (0), marca "y" (se renumeroteaza), diametrul si lungimea
 ;; L= ca FIELD legat de lungimea barei. vb = bara, cioc > 0 in sus, < 0 in jos.
-(defun gb:armatura (doc ms x1 x2 vb cioc diam cu / pl yc d1 d2 d3 cerc marca dt lung ut tp)
+(defun gb:armatura (doc ms x1 x2 vb cioc diam cu / pl yc d1 d2 d3 cerc marca dt lung ut tp g)
   (setq yc (+ vb cioc))
   ;; marca, diametrul si L= cam la mijlocul barei; textul cotei lungimii
   ;; (ut) la mijlocul distantei dintre diametru si cota ciocului din dreapta,
-  ;; ca sa nu stea pe mijlocul barei (s-ar muta bara cu el); la barele
-  ;; scurte eticheta se muta spre stanga, ca sa ramana loc textului
-  (setq cu (max (+ x1 200.0) (min cu (- x2 870.0)))
-        ut (/ (+ cu 470.0 x2) 2.0))
+  ;; ca sa nu stea pe mijlocul barei (s-ar muta bara cu el). La barele
+  ;; scurte, eticheta (cerc..diametru, ~590 mm) si textul cotei (~300 mm)
+  ;; se aseaza cu spatii egale intre ele si fata de capete.
+  (if (< (- x2 x1) 3000.0)
+    (setq g (max 0.0 (/ (- x2 x1 590.0 300.0) 3.0))
+          cu (+ x1 g 117.0)
+          ut (+ cu 470.0 g 150.0))
+    (setq ut (/ (+ cu 470.0 x2) 2.0)))
   (setq pl (entmakex
              (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") (cons 8 gb:*l-fier*) '(100 . "AcDbPolyline")
                    '(90 . 4) '(70 . 0)
@@ -747,7 +751,8 @@
   (foreach d (list d1 d2 d3) (vla-put-layer d gb:*l-fier*))
   (if (and (setq tp (vl-catch-all-apply 'vlax-get (list d3 'TextPosition)))
            (not (vl-catch-all-error-p tp)))
-    (vl-catch-all-apply 'vlax-put (list d3 'TextPosition (list ut (cadr tp) (caddr tp)))))
+    ;; mijlocul textului pe linia cotei, ca in desenele facute manual
+    (vl-catch-all-apply 'vlax-put (list d3 'TextPosition (list ut vb (caddr tp)))))
   (gb:grup doc (append (mapcar 'gb:o (list pl cerc marca dt lung)) (list d1 d2 d3)))
 )
 
