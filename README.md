@@ -52,7 +52,7 @@ Toata generarea se anuleaza cu un singur `U`.
     departe de 15 cm).
   - **buiandrugi**: la 15 cm peste tot, in afara de stalpi (si peste caramida); ultimul se pune la capat.
   - nu se pun etrieri in stalpi (si nici in grinda pe care reazema elementul).
-- lantul de cote de sus (doar zonele de etrieri, fara stalpi) cu `etr. %%C8/10` / `etr. %%C8/15` sub el; lantul
+- lantul de cote de sus: zonele de etrieri, de la coltul grinzii (cu stalp) pana la schimbarea de pas si de la ultima schimbare de pas pana la capatul grinzii (cu stalp); peste un stalp intermediar, zonele cu acelasi pas sunt o singura cota cu `etr. %%C8/10` / `etr. %%C8/15` sub el; lantul
   de jos (reazemele si deschiderile); stil `Centimetri 50 cu virgula`, layer `Cote`
 - axele care trec prin reazeme (stalpi / grinda de reazem), cu numele lor; unde nu trece nicio axa, nu se pune
 - grupul de cote de nivel (layer `Cote`): cota de inaltime, cota de sus si cota de jos ca FIELD

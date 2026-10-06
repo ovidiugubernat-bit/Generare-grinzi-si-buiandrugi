@@ -685,6 +685,20 @@
 ;; o desfasurata; ox = marginea stanga, oy = fata de sus. Intoarce lungimea.
 ;; textul unei zone de etrieri sta mereu la mijlocul cotei zonei; sectiunea
 ;; "xx" (linia la xs, textul "xx" la stanga ei) se muta daca ar cadea peste el
+;; zonele de etrieri pentru cote: (a b pas) unite peste reazeme
+(defun gb:zone-cote (zones ua ub / r p)
+  (foreach z zones
+    (cond
+      ((null r) (setq r (list (list ua (cadr z) (caddr z)))))
+      ((= (caddr z) (caddr (car r)))
+       (setq r (cons (list (car (car r)) (cadr z) (caddr z)) (cdr r))))
+      (T
+       ;; pas diferit: golul (stalpul) ramane la zona din stanga
+       (setq p (car r) r (cons (list (car p) (car z) (caddr p)) (cdr r))
+             r (cons (list (car z) (cadr z) (caddr z)) r)))))
+  (if r (setq r (cons (list (car (car r)) ub (caddr (car r))) (cdr r))))
+  (reverse r)
+)
 (defun gb:xx-loveste (xs txs)
   (vl-some '(lambda (xm) (and (< (- xm gb:*lat-etr*) (+ xs 20.0)) (> (+ xm gb:*lat-etr*) (- xs 220.0)))) txs)
 )
@@ -720,7 +734,11 @@
         zones (cadr et) desc (caddr et))
   (foreach u (car et)
     (gb:linie gb:*l-etr* (list (gb:x u) (- oy gb:*acop*)) (list (gb:x u) (+ yb gb:*acop*))))
-  ;; lantul de sus: doar zonele de etrieri (fara stalpi), cu textul zonei
+  ;; lantul de sus: zonele de etrieri, fara opriri la stalpi: prima incepe
+  ;; din coltul grinzii (cu stalp), ultima se termina la capatul ei, iar
+  ;; zonele cu acelasi pas de o parte si de alta a unui stalp intermediar
+  ;; sunt o singura cota
+  (setq zones (gb:zone-cote zones ua ub))
   (foreach z zones
     (gb:cota ms (list (gb:x (car z)) oy) (list (gb:x (cadr z)) oy) (list (gb:x (car z)) (+ oy 300.0)) 0.0))
   ;; sectiunea "xx" sta in prima treime a primei deschideri (de la reazemul
