@@ -41,8 +41,9 @@
 ;;   - axele care trec prin reazeme, cu numele lor
 ;;   - cota de inaltime si cotele de nivel (grup pe "Cote"): sus cota
 ;;     data la pornire, jos un FIELD = cota de sus - cota de inaltime
-;;   - sectiunea "xx" (grup pe "Sectiuni grinzi"), in prima treime a
-;;     primei deschideri, de la reazemul din stanga; textul "xx" are
+;;   - sectiunea (grup pe "Sectiuni grinzi", numerotata 1, 2, 3... de la
+;;     stanga la dreapta; RenumeroteazaSectiuni o renumeroteaza oricand), in
+;;     prima treime a primei deschideri, de la reazemul din stanga; textul are
 ;;     punctul de insertie in dreapta jos
 ;;   - deasupra: "G1 30x40 1buc." si "Scara 1:50" ("Bucati element");
 ;;     elementele identice (acelasi nume, aceeasi geometrie) se deseneaza
@@ -992,11 +993,11 @@
   (foreach xs xss
     (progn
       ;; jos, sub fata de jos a grinzii in dreptul sectiunii (sectiune variabila)
-      (setq yj (gb:yjos xs) xs (gb:x xs))
+      (setq yj (gb:yjos xs) xs (gb:x xs) gb:*nr-sect* (1+ gb:*nr-sect*))
       (gb:grup doc (list (gb:o (gb:linie gb:*l-sect* (list xs (+ oy 83.7)) (list xs (+ oy 195.6))))
                          (gb:o (gb:linie gb:*l-sect* (list xs (- yj 103.5)) (list xs (- yj 215.3))))
-                         (gb:o (gb:text gb:*l-sect* (list (- xs 40.0) (+ oy 139.7 (- gb:*xx-centru*))) 120.0 "xx" gb:*st-text* "BR" nil))
-                         (gb:o (gb:text gb:*l-sect* (list (- xs 40.0) (- yj 159.4 gb:*xx-centru*)) 120.0 "xx" gb:*st-text* "BR" nil))))))
+                         (gb:o (gb:text gb:*l-sect* (list (- xs 40.0) (+ oy 139.7 (- gb:*xx-centru*))) 120.0 (itoa gb:*nr-sect*) gb:*st-text* "BR" nil))
+                         (gb:o (gb:text gb:*l-sect* (list (- xs 40.0) (- yj 159.4 gb:*xx-centru*)) 120.0 (itoa gb:*nr-sect*) gb:*st-text* "BR" nil))))))
   ;; armatura longitudinala: la grinzi un rand sus si unul jos (3%%C16),
   ;; la buiandrugi doar jos (3%%C12; sus sunt barele centurii); bara e cu
   ;; 25 mm mai scurta la fiecare capat; marca "y" se renumeroteaza
@@ -1097,7 +1098,7 @@
       (princ (strcat "\nEroare: " msg)))
     (princ)
   )
-  (setq gb:*err* nil gb:*el* nil)
+  (setq gb:*err* nil gb:*el* nil gb:*nr-sect* 0)
   (princ "\nSelectati planul de cofraj (fereastra peste tot planul): ")
   (if (setq ss (ssget (list (cons 8 "Markers,Grinzi,Centuri,Stalpi,Axe,Cofrag"))))
     (progn
@@ -1743,5 +1744,88 @@
   (max (+ xe 110.0) (+ X Ws 900.0))
 )
 
-(princ "\nGenerare grinzi si buiandrugi incarcat. Comenzi: GenerareGrinziBuiandrugi, SectiuniGrinzi")
+;; =========================================================================
+;; COMANDA: RenumeroteazaSectiuni
+;; Selectati tot (nu trebuie izolat nimic). Comanda gaseste grupurile de
+;; sectiune de pe desfasurate (pe "Sectiuni grinzi": doua linii si doua
+;; texte, sus si jos) si le numeroteaza 1, 2, 3 ... de la stanga la dreapta;
+;; daca desfasuratele sunt pe mai multe randuri, randurile de sus in jos.
+;; Titlurile N-N ale chenarelor de sectiuni din selectie se actualizeaza la
+;; fel (fosta 3-3 devine noua ei eticheta), ca sa ramana legate de grinzi.
+;; =========================================================================
+(defun c:RenumeroteazaSectiuni ( / *error* doc ss i e ed g grp tx ln gr vazut rand y0 nr harta k v nn old dup)
+  (setq doc (vla-get-activedocument (vlax-get-acad-object)))
+  (defun *error* (msg)
+    (vla-endundomark doc)
+    (if (and msg (not (wcmatch (strcase msg) "*CANCEL*,*QUIT*,*EXIT*"))) (princ (strcat "\nEroare: " msg)))
+    (princ))
+  (princ "\nSelectati desfasuratele (tot; se iau doar grupurile de sectiune): ")
+  (if (setq ss (ssget (list (cons 8 gb:*l-sect*))))
+    (progn
+      (setq i 0)
+      (repeat (sslength ss)
+        (setq e (ssname ss i) ed (entget e) i (1+ i))
+        (cond
+          ;; titlurile N-N ale chenarelor de sectiuni
+          ((and (= (cdr (assoc 0 ed)) "TEXT") (vl-string-search "-" (cdr (assoc 1 ed))))
+           (setq nn (cons e nn)))
+          ;; textele din grupurile de sectiune (cu linie in acelasi grup)
+          ((= (cdr (assoc 0 ed)) "TEXT")
+           (foreach g (gb:grupuri-ent e)
+             (if (not (member g vazut))
+               (progn
+                 (setq vazut (cons g vazut) tx nil ln nil)
+                 (foreach m (gb:membri g)
+                   (cond
+                     ((/= (strcase (cdr (assoc 8 (entget m)))) (strcase gb:*l-sect*)))
+                     ((= (cdr (assoc 0 (entget m))) "TEXT") (setq tx (cons m tx)))
+                     ((= (cdr (assoc 0 (entget m))) "LINE") (setq ln (cons m ln)))))
+                 (if (and tx ln (not (vl-some '(lambda (t1) (vl-string-search "-" (cdr (assoc 1 (entget t1))))) tx)))
+                   (setq grp (cons (list (car (cdr (assoc 10 (entget (car ln)))))
+                                         (apply 'max (mapcar '(lambda (l) (max (caddr (assoc 10 (entget l))) (caddr (assoc 11 (entget l))))) ln))
+                                         tx)
+                                   grp)))))))))
+      (if (null grp)
+        (alert "Nu am gasit niciun grup de sectiune (doua linii si doua texte pe \"Sectiuni grinzi\").")
+        (progn
+          ;; randuri: de sus in jos (grupuri la mai putin de 3 m pe verticala =
+          ;; acelasi rand), in fiecare rand de la stanga la dreapta
+          (setq grp (gb:sort grp '(lambda (a b) (> (cadr a) (cadr b)))) rand nil y0 nil)
+          (foreach q grp
+            (if (or (null y0) (> (- y0 (cadr q)) 3000.0)) (setq y0 (cadr q) rand (cons nil rand)))
+            (setq rand (cons (cons q (car rand)) (cdr rand))))
+          (vla-startundomark doc)
+          (setq nr 0)
+          (foreach r (reverse rand)
+            (foreach q (gb:sort r '(lambda (a b) (< (car a) (car b))))
+              (setq nr (1+ nr) old (cdr (assoc 1 (entget (car (caddr q))))))
+              ;; vechiul numar -> noul numar (pentru titlurile N-N)
+              (if (and (/= old "") (not (wcmatch (strcase old) "XX*")))
+                (if (setq k (assoc old harta))
+                  (if (/= (cdr k) (itoa nr)) (setq dup (cons old dup)))
+                  (setq harta (cons (cons old (itoa nr)) harta))))
+              (foreach t1 (caddr q)
+                (setq ed (entget t1))
+                (entmod (subst (cons 1 (itoa nr)) (assoc 1 ed) ed)))))
+          ;; titlurile N-N
+          (setq k 0)
+          (foreach t1 nn
+            (setq ed (entget t1) v (vl-string-trim " " (cdr (assoc 1 ed))))
+            (setq old (substr v 1 (vl-string-search "-" v)))
+            (if (and (setq g (assoc old harta)) (not (member old dup)) (/= (strcat (cdr g) "-" (cdr g)) v))
+              (progn
+                (entmod (subst (cons 1 (strcat (cdr g) "-" (cdr g))) (assoc 1 ed) ed))
+                (setq k (1+ k)))))
+          (vla-endundomark doc)
+          (princ (strcat "\nAm numerotat " (itoa nr) " sectiuni (1.." (itoa nr) ")"
+                         (if (> k 0) (strcat ", am actualizat " (itoa k) " titluri N-N") "") "."))
+          (if dup
+            (alert (strcat "Acelasi numar era pe mai multe sectiuni diferite inainte ("
+                           (apply 'strcat (mapcar '(lambda (x) (strcat x " ")) dup))
+                           ") - titlurile N-N cu aceste numere nu le-am schimbat; verificati-le."))))))
+    (princ "\nNimic selectat."))
+  (princ)
+)
+
+(princ "\nGenerare grinzi si buiandrugi incarcat. Comenzi: GenerareGrinziBuiandrugi, SectiuniGrinzi, RenumeroteazaSectiuni")
 (princ)

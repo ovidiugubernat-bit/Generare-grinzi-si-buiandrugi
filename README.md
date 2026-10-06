@@ -5,7 +5,8 @@ LISP AutoCAD (2024) care desfasoara grinzile si buiandrugii de pe planul de cofr
 | Fisier | Comanda | Ce face |
 | --- | --- | --- |
 | `Generare grinzi si buiandrugi.lsp` | `GenerareGrinziBuiandrugi` | Desfasoara toate grinzile (G..) si buiandrugii (B..) din planul selectat, plus detaliile centurilor, si semnaleaza greselile gasite pe plan |
-| `Generare grinzi si buiandrugi.lsp` | `SectiuniGrinzi` | Deseneaza sectiunile (1:20) pentru numerele scrise pe desfasurate in locul lui `xx` |
+| `Generare grinzi si buiandrugi.lsp` | `SectiuniGrinzi` | Deseneaza sectiunile (1:20) pentru numerele sectiunilor de pe desfasurate |
+| `Generare grinzi si buiandrugi.lsp` | `RenumeroteazaSectiuni` | Renumeroteaza sectiunile de pe desfasurate 1, 2, 3... de la stanga la dreapta (si titlurile N-N ale chenarelor) |
 | `Renumeroteaza Marci Grinzi.lsp` | `RenumeroteazaMarciGrinzi` | Renumeroteaza marcile (bare lungi, etrieri); marcile legate (etrierul centurii din sectiunea buiandrugului) primesc singure numarul |
 | `Extras grinzi.lsp` | `ExtrasGrinzi`, `GasesteMarcaGrinzi` | Extrasul de armatura (Excel sau tabel AutoCAD); avertizeaza cand o marca e sarita |
 
@@ -152,3 +153,12 @@ Fiecare desfasurata primeste chenarele de care au nevoie renumerotarea si extras
 (cotele de nivel raman in afara, ca desfasuratele sa poata fi apropiate fara ca chenarele sa se suprapuna):
 - `Chenar pentru armatura`: titlul (numele cu bucatile) si grupurile barelor lungi de dedesubt
 - `Chenar etrieri`: etrierii si numerele sectiunilor (sus si jos)
+
+## Numerele sectiunilor
+
+La generare, fiecare sectiune primeste direct un numar, 1, 2, 3... de la stanga la dreapta. Daca adaugati sau stergeti o
+sectiune (copiati un grup de sectiune existent unde e nevoie), rulati `RenumeroteazaSectiuni` si selectati tot (nu
+trebuie izolat nimic): comanda gaseste grupurile de sectiune (doua linii si doua texte pe `Sectiuni grinzi`) si le
+numeroteaza de la 1, de la stanga la dreapta, pe randuri de sus in jos. Titlurile `N-N` ale chenarelor de sectiuni din
+selectie se schimba la fel (fosta 4-4 devine 3-3 etc.), ca sa ramana legate de grinzi; pentru sectiunea noua se
+deseneaza chenarul cu `SectiuniGrinzi`.
