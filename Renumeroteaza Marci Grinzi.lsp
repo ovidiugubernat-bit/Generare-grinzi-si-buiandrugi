@@ -317,7 +317,7 @@
                                        toate_textele chei_chenare nume_ch k ordine_txt sect_ch nr_sect t1
                                        eticheta gasit_nr indicator_ent nr_sarite nr_definitii
                                        g_din_chenar valori_gasite valori_unice v r
-                                       harta_tag tg marci_legate nelegate )
+                                       harta_tag tg marci_legate nelegate are_buc_centura numerotate descr )
 
   (princ "\nSelectati toata zona de renumerotat (grinzi - chenare armatura, chenare etrieri, chenare sectiuni etrieri, tot): ")
   (setq ss (ssget))
@@ -388,12 +388,13 @@
   (setq bare_toate nil definitii_etrier nil)
   (foreach grp group_map
     (setq elems (cdr grp))
-    (setq marca_ent nil marca_pt nil diam_txt nil lung_txt nil are_etr_cuvant nil)
+    (setq marca_ent nil marca_pt nil diam_txt nil lung_txt nil are_etr_cuvant nil are_buc_centura nil)
     (foreach el elems
       (cond
         ((= (car el) "OTEL MARCA") (setq marca_ent (nth 1 el) marca_pt (nth 2 el)))
         ((= (car el) "OTEL DIAMETRU") (setq diam_txt (nth 3 el)))
         ((= (car el) "OTEL LUNGIME") (setq lung_txt (nth 3 el)))
+        ((= (car el) "BUCATI ETRIERI CENTURI") (setq are_buc_centura t))
       )
       (setq txt_continut (strcase (nth 3 el)))
       (if (vl-string-search "ETR" txt_continut) (setq are_etr_cuvant t))
@@ -406,7 +407,7 @@
           (if are_etr_cuvant
             (setq definitii_etrier (cons (list marca_ent marca_pt diam_baza lung_val (rmk:forma-etrier (car grp))) definitii_etrier))
           )
-          (setq bare_toate (cons (list marca_ent marca_pt diam_baza lung_val) bare_toate))
+          (setq bare_toate (cons (list marca_ent marca_pt diam_baza lung_val are_buc_centura) bare_toate))
         )
       )
     )
@@ -484,11 +485,24 @@
         )
       )
       (setq marca_ent (nth 0 g))
+      (setq numerotate (cons marca_ent numerotate))
       (setq old_txt (cdr (assoc 1 (entget marca_ent))))
       (setq raport (cons (strcat old_txt " -> " (itoa nr) " (bara)") raport))
       (entmod (subst (cons 1 (itoa nr)) (assoc 1 (entget marca_ent)) (entget marca_ent)))
     )
   )
+  ;; barele drepte ale centurilor (grup cu "... buc." pe Bucati etrieri
+  ;; centuri) care nu sunt in niciun Chenar pentru armatura: le numerotam si
+  ;; pe ele, dupa cele din chenare - extrasul le numara oricum
+  (foreach g (grn-sorteaza-bare (vl-remove-if-not '(lambda (g) (and (nth 4 g) (not (member (car g) numerotate)))) bare_toate))
+    (setq cheie (grn-cheie (nth 2 g) (nth 3 g)) existing (assoc cheie harta_numere))
+    (if existing
+      (setq nr (cdr existing))
+      (setq nr urmator harta_numere (cons (cons cheie nr) harta_numere) urmator (1+ urmator)))
+    (setq marca_ent (nth 0 g) numerotate (cons marca_ent numerotate))
+    (setq old_txt (cdr (assoc 1 (entget marca_ent))))
+    (setq raport (cons (strcat old_txt " -> " (itoa nr) " (bara centura, in afara chenarelor)") raport))
+    (entmod (subst (cons 1 (itoa nr)) (assoc 1 (entget marca_ent)) (entget marca_ent))))
 
   ;; --- ETAPA 2: definitii de etrier, dupa sectiune ---
   ;; ordinea etrierilor dupa sectiune: 1-1, 2-2 ...; cei care nu sunt in
@@ -641,18 +655,31 @@
       ((/= old_txt (cdr existing))
        (setq raport (cons (strcat old_txt " -> " (cdr existing) " (marca legata " (cadr ml) ")") raport))
        (entmod (subst (cons 1 (cdr existing)) (assoc 1 (entget (car ml))) (entget (car ml)))))))
+  ;; descrierea unei legaturi, pentru mesaje: "C300x250" -> etrierul centurii 30x25
+  (defun grn-descr-tag (tg / p)
+    (cond
+      ((wcmatch tg "CB*")
+       (setq p (vl-string-search "X" (strcase tg)))
+       (strcat "barele drepte ale centurilor " (substr tg 3 (- p 2)) "%%C" (substr tg (+ p 2))
+               " (grupul cu L=12.00m de sub detaliile centurilor)"))
+      ((wcmatch tg "C*")
+       (setq p (vl-string-search "X" (strcase tg)))
+       (strcat "etrierul centurii " (rtos (/ (atof (substr tg 2 (1- p))) 10.0) 2 0) "x" (rtos (/ (atof (substr tg (+ p 2))) 10.0) 2 0)
+               " (etrierul desfasurat din detaliul centurii)"))
+      (T tg)))
   (foreach tg nelegate
-    (princ (strcat "\n[ATENTIE] Marci legate de \"" tg "\" (ex. etrierul sau barele unei centuri), dar nu am gasit in selectie"
-                   " definitia lor numerotata (detaliul centurii, cu bara in Chenar pentru armatura) - au ramas nerenumerotate.")))
+    (princ (strcat "\n[ATENTIE] Marcile care arata " (grn-descr-tag tg) " au ramas nerenumerotate: definitia lor nu e in"
+                   " selectie, sau nu are inca numar.")))
 
   (princ (strcat "\n[OK] Renumerotare terminata - " (itoa nr_definitii) " definitii de etrier, " (itoa (1- urmator)) " numere distincte folosite in total."))
   (foreach r (reverse raport) (princ (strcat "\n  " r)))
   (princ)
   (cond
     (nelegate
-     (alert (strcat "Unele marci legate nu au primit numar (nu am gasit definitia lor):\n\n"
-                    (apply 'strcat (mapcar '(lambda (x) (strcat "  " x "\n")) nelegate))
-                    "\nSelectati si detaliile centurilor (cu bara dreapta in Chenar pentru armatura).")))
+     (alert (strcat "Unele marci au ramas nerenumerotate, pentru ca nu am gasit in selectie elementul la care se refera:\n\n"
+                    (apply 'strcat (mapcar '(lambda (x) (strcat "  - marcile care arata " (grn-descr-tag x) "\n")) nelegate))
+                    "\nSelectati si detaliile centurilor de la capatul randului de desfasurate (cu etrierii si bara de 12 m)"
+                    " si rulati din nou.")))
     (are_marci_de_corectat
      (alert "Verifica marcile de modificat manual in functie de etrierii din centuri.")))
   (vla-endundomark rmk:doc)

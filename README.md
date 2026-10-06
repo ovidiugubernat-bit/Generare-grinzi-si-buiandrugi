@@ -108,7 +108,7 @@ grinda cu sectiune variabila, numita `G1 30x50(30x40)`:
 La sfarsitul randului de desfasurate, cate un detaliu pentru fiecare tip de centura de pe plan (dupa textele C..):
 sectiunea la 1:20 (placa din grupul de cofraj al centurii), 2+2 bare, etrierul in sectiune, cotele de nivel, etrierul
 desfasurat (laturi = centura - 5 cm, `etr %%C8/15`, L= field) cu `xxx buc.` pe `Bucati etrieri centuri`, si sub ele
-grupul barelor drepte (`4%%C12`, `L=12.00m`, `xxx buc.`). Armatura centurii se intreaba la pornire (`<4%%C12>`).
+grupul barelor drepte (`4%%C12`, `L=12.00m`, `xxx buc.`), aliniat cu primul detaliu, in `Chenar pentru armatura`. Armatura centurii se intreaba la pornire (`<4%%C12>`).
 Bucatile `xxx` se completeaza manual; extrasul avertizeaza daca au ramas necompletate.
 
 La buiandrugi, langa fiecare etrier (la 25 mm) e figurat etrierul centurii pe `Otel centuri global` (de la fierul de
@@ -139,7 +139,8 @@ pe desfasurate generate cu versiunea aceasta.
 
 - Marcile generate au o legatura ascunsa (XDATA `GBMARCA`, ex. `C300x250` = etrierul centurii 30x25). La
   `RenumeroteazaMarciGrinzi`, marca etrierului centurii din sectiunea unui buiandrug primeste numarul etrierului din
-  detaliul centurii; nu mai e nevoie de `Marci otel de corectat`. Legaturile fara definitie sunt semnalate.
+  detaliul centurii; nu mai e nevoie de `Marci otel de corectat`. Legaturile fara definitie sunt semnalate, cu ce anume lipseste. Barele drepte ale centurilor (grup cu `... buc.` pe
+  `Bucati etrieri centuri`) primesc numar si daca nu sunt intr-un `Chenar pentru armatura`.
 - `ExtrasGrinzi`: un `Chenar etrieri` fara marca isi afla marca din numerele sectiunilor din el (ca la renumerotare),
   deci grupul cerc+marca de pe desfasurata nu mai e obligatoriu. Avertismente noi: etrieri nenumarati (fara marca si
   fara sectiune, sau in afara oricarui Chenar etrieri), definitii sau bare care nu ajung in tabel, numere lipsa in sirul

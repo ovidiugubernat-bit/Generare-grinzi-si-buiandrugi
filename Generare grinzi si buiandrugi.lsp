@@ -692,7 +692,8 @@
                    (list gb:*l-cote* 7 nil) (list gb:*l-axe-d* 1 "ACAD_ISO10W100") (list gb:*l-sect* 11 nil)
                    (list gb:*l-bucati* 7 nil) (list gb:*l-erori* 1 nil)
                    (list gb:*l-marca* 2 nil) (list gb:*l-diam* 7 nil) (list gb:*l-lung* 7 nil)
-                   (list gb:*l-ocg* 4 nil) (list gb:*l-buc-c* 7 nil) (list gb:*l-chenar-s* 23 "HIDDEN"))
+                   (list gb:*l-ocg* 4 nil) (list gb:*l-buc-c* 7 nil) (list gb:*l-chenar-s* 23 "HIDDEN")
+                   (list gb:*l-chenar-a* 6 nil))
     (if (not (tblsearch "LAYER" (car l)))
       (entmake (append (list '(0 . "LAYER") '(100 . "AcDbSymbolTableRecord") '(100 . "AcDbLayerTableRecord")
                              (cons 2 (car l)) '(70 . 0) (cons 62 (cadr l)))
@@ -1174,10 +1175,12 @@
                   (setq lv (append lv (list (cons (list (gb:g 'b c) (gb:g 'h c)) c))))))
               (if lv
                 (progn
-                  (setq r ox)
+                  (setq r ox gb:*y-det* oy)
                   (foreach c lv
                     (setq ox (+ ox (gb:detaliu-centura doc ms (cdr c) ox oy top (gb:n-diam gb:*arm-c*)) 500.0)))
-                  (gb:bare-centura doc ms (+ r 300.0) (- oy 5800.0) (gb:n-diam gb:*arm-c*))))
+                  ;; barele drepte sub detalii, aliniate cu primul, in chenarul
+                  ;; lor pentru armatura (renumerotarea le cauta acolo)
+                  (gb:bare-centura doc ms (+ r 1300.0 -232.1) (- gb:*y-det* 417.5) (gb:n-diam gb:*arm-c*))))
               (setq gb:*err* (reverse gb:*err*))
               (gb:marcheaza-erori gb:*err*)
               (gb:stil-cota doc ds0)
@@ -1214,6 +1217,7 @@
 (setq gb:*ds-20*     "Centimetrii sc 1la20")
 (setq gb:*ds-etr*    "etrier 20 marit")
 (setq gb:*l-chenar-s* "Chenar pentru sectiuni etrieri")
+(setq gb:*l-chenar-a* "Chenar pentru armatura")
 (setq gb:*l-ocg*     "Otel centuri global")
 (setq gb:*l-buc-c*   "Bucati etrieri centuri")
 (setq gb:*app*       "GBGRINDA")   ; date ascunse pe conturul desfasuratei
@@ -1508,6 +1512,8 @@
   (setq xr (gb:s-nivel doc ms (cadr r) oy (* gb:*sc* h) top))
   (setq Ws (* gb:*sc* (- b 50.0)) Hs (* gb:*sc* (- h 50.0)))
   (gb:etrier-inchis doc ms x0 (- (caddr r) 888.0) Ws Hs (strcat "etr " gb:*diam* "/15") tag "xxx buc.")
+  ;; cel mai de jos punct al detaliilor (sub "xxx buc."), pentru barele drepte
+  (setq gb:*y-det* (min (cond (gb:*y-det*) (0.0)) (- (caddr r) 888.0 Hs 900.0)))
   (- xr ox -300.0)
 )
 
@@ -1531,6 +1537,7 @@
         lg (gb:text gb:*l-lung* (list (+ bx 895.6) (- by 175.4)) 125.0 "L=12.00m" gb:*st-text* "M" nil)
         bt (gb:text gb:*l-buc-c* (list (+ bx 1784.5) (- by 175.4)) 125.0 "xxx buc." gb:*st-axe* "M" nil))
   (gb:grup doc (mapcar 'gb:o (list l1 l2 s1 s2 c m dt lg bt)))
+  (gb:dreptunghi gb:*l-chenar-a* (- bx 18.7) (+ by 417.5) (+ bx 2545.1) (- by 393.2))
 )
 
 ;; =========================================================================
