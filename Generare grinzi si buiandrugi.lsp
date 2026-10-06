@@ -972,8 +972,8 @@
 )
 
 ;; numararea: ((tag . etrieri) ...) pe tipuri de centura ("C300x250") si
-;; numarul de bare de 12 m (cu innadiri de 50 de diametre); scrie si un
-;; rezumat in linia de comanda
+;; o estimare a barelor de 12 m (cu innadiri de 50 de diametre), doar in
+;; rezumatul din linia de comanda (barele raman "xxx buc." in desen)
 (defun gb:centuri-calcul (arm / fasii f m tag r n lt nb lap buc lv)
   (setq fasii (gb:fasii-centuri) lt 0.0)
   (foreach f fasii
@@ -993,8 +993,9 @@
   (foreach r lv
     (princ (strcat "\n  " (caddr r) ": " (itoa (cadr r)) " etrieri")))
   (princ (strcat "\n  bare " gb:*arm-c* ": " (gb:rtos (/ lt 1000.0) 2) " m de centura x " (itoa nb)
-                 " = " (gb:rtos (/ (* nb lt) 1000.0) 1) " m -> " (itoa buc) " bare de 12 m (innadiri de "
-                 (gb:rtos (/ lap 10.0) 0) " cm)"))
+                 " = " (gb:rtos (/ (* nb lt) 1000.0) 1) " m -> ~" (itoa buc) " bare de 12 m (innadiri de "
+                 (gb:rtos (/ lap 10.0) 0) " cm), fara barele L / T si fara grinzile scurte in continuarea centurii"
+                 " - doar orientativ; bucatile barelor se completeaza manual (xxx buc.)"))
   (list (mapcar '(lambda (r) (cons (car r) (cadr r))) lv) buc)
 )
 
@@ -1330,8 +1331,7 @@
                                 500.0)))
                   ;; barele drepte sub detalii, aliniate cu primul, in chenarul
                   ;; lor pentru armatura (renumerotarea le cauta acolo)
-                  (gb:bare-centura doc ms (+ r 1300.0 -232.1) (- gb:*y-det* 417.5) (gb:n-diam gb:*arm-c*)
-                                  (if (> (cadr cc) 0) (strcat (itoa (cadr cc)) " buc.") "xxx buc."))))
+                  (gb:bare-centura doc ms (+ r 1300.0 -232.1) (- gb:*y-det* 417.5) (gb:n-diam gb:*arm-c*) "xxx buc.")))
               (setq gb:*err* (reverse gb:*err*))
               (gb:marcheaza-erori gb:*err*)
               (gb:stil-cota doc ds0)
