@@ -1771,9 +1771,9 @@
     (gb:text gb:*l-sect* (list (+ x0 (* 0.5 W)) ty) 300.0 (strcat (car q) "-" (car q)) gb:*st-text* "MC" nil)
     (gb:text gb:*l-elem* (list (+ x0 (* 0.5 W) -20.0) (- ty 335.2)) 125.0 "Sc 1:20" gb:*st-text* "MC" nil)
     (setq r (gb:sectiune doc ms x0 y0 s) xr (cadr r) ybot (min ybot (caddr r)))
-    (setq x0 (+ xr 1215.0)))
-  ;; cotele de nivel, la ultima sectiune
-  (setq xe (gb:s-nivel doc ms xr y0 (* gb:*sc* (gb:g 'h s)) (gb:g 'top s)))
+    ;; cotele de nivel si de inaltime, la fiecare sectiune
+    (setq xe (gb:s-nivel doc ms xr y0 (* gb:*sc* (gb:g 'h s)) (gb:g 'top s)))
+    (setq x0 (+ xe 1100.0)))
   ;; etrierul desfasurat (definitia), sub prima sectiune
   (setq s (cdr (car lst))
         Ws (* gb:*sc* (- (gb:g 'b s) 50.0)) Hs (* gb:*sc* (- (gb:g 'h s) 50.0))
