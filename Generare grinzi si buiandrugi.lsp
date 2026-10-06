@@ -73,6 +73,11 @@
 (setq gb:*arm-b*    "3%%C12")  ; armatura buiandrugilor, jos
 (setq gb:*cioc-g*   250.0)     ; ciocurile barelor la grinzi (mm)
 (setq gb:*cioc-b*   300.0)     ; ciocurile barelor la buiandrugi (mm)
+;; randurile barelor de grinda sub fata de jos: sus la 1085 (ciocuri in jos),
+;; jos cu 5 cm intre ciocuri (1085 + 250 + 50 + 250), al doilea rand de jos
+;; (sectiune variabila) inca 330 mai jos
+(setq gb:*y-jos-1*  1635.0)
+(setq gb:*y-jos-2*  1965.0)
 (setq gb:*spatiu*   1800.0)  ; distanta intre desfasurate (mm)
 (setq gb:*sect-max* 1500.0)  ; cat de departe de element poate sta sectiunea de cofraj (mm)
 
@@ -879,7 +884,7 @@
   (if r r xs)
 )
 
-(defun gb:deseneaza (doc ms e n top ox oy / ua ub lt h yb x et zones desc pct pt2 a b xm s xs xss txs titlu cu hc tr k j x1 x2)
+(defun gb:deseneaza (doc ms e n top ox oy / ua ub lt h yb yj x et zones desc pct pt2 a b xm s xs xss txs titlu cu hc tr k j x1 x2)
   (setq ua (gb:g 'ua e) ub (gb:g 'ub e) lt (- ub ua) h (gb:g 'h e) yb (- oy h) tr (gb:g 'tr e))
   (defun gb:x (u) (+ ox (- u ua)))
   (defun gb:yjos (u) (- oy (gb:h-la e u)))
@@ -972,11 +977,12 @@
   ;; sectiunile "xx"
   (foreach xs xss
     (progn
-      (setq xs (gb:x xs))
+      ;; jos, sub fata de jos a grinzii in dreptul sectiunii (sectiune variabila)
+      (setq yj (gb:yjos xs) xs (gb:x xs))
       (gb:grup doc (list (gb:o (gb:linie gb:*l-sect* (list xs (+ oy 83.7)) (list xs (+ oy 195.6))))
-                         (gb:o (gb:linie gb:*l-sect* (list xs (- yb 103.5)) (list xs (- yb 215.3))))
+                         (gb:o (gb:linie gb:*l-sect* (list xs (- yj 103.5)) (list xs (- yj 215.3))))
                          (gb:o (gb:text gb:*l-sect* (list (- xs 40.0) (+ oy 139.7 (- gb:*xx-centru*))) 120.0 "xx" gb:*st-text* "BR" nil))
-                         (gb:o (gb:text gb:*l-sect* (list (- xs 40.0) (- yb 159.4 gb:*xx-centru*)) 120.0 "xx" gb:*st-text* "BR" nil))))))
+                         (gb:o (gb:text gb:*l-sect* (list (- xs 40.0) (- yj 159.4 gb:*xx-centru*)) 120.0 "xx" gb:*st-text* "BR" nil))))))
   ;; armatura longitudinala: la grinzi un rand sus si unul jos (3%%C16),
   ;; la buiandrugi doar jos (3%%C12; sus sunt barele centurii); bara e cu
   ;; 25 mm mai scurta la fiecare capat; marca "y" se renumeroteaza
@@ -987,7 +993,7 @@
       ;; sus: continua
       (gb:armatura doc ms (+ ox gb:*acop*) (+ ox lt (- gb:*acop*)) (- yb 1085.0) (- gb:*cioc-g*) gb:*arm-g* cu)
       (if (= (length tr) 1)
-        (gb:armatura doc ms (+ ox gb:*acop*) (+ ox lt (- gb:*acop*)) (- yb 1680.0) gb:*cioc-g* gb:*arm-g* cu)
+        (gb:armatura doc ms (+ ox gb:*acop*) (+ ox lt (- gb:*acop*)) (- yb gb:*y-jos-1*) gb:*cioc-g* gb:*arm-g* cu)
         ;; jos, la sectiune variabila: cate o bara pe fiecare tronson, peste
         ;; tot stalpul de la treapta (barele vecine se petrec pe stalp), pe
         ;; doua randuri alternate
@@ -999,7 +1005,7 @@
                   s (if (< k (1- (length tr))) (gb:reazem-la e (cadr x)))
                   x2 (if s (- (gb:x (caddr s)) gb:*acop*) (+ ox lt (- gb:*acop*)))
                   j (- (length tr) 1 k))
-            (gb:armatura doc ms x1 x2 (- yb (if (= (rem j 2) 0) 1835.0 2165.0)) gb:*cioc-g* gb:*arm-g*
+            (gb:armatura doc ms x1 x2 (- yb (if (= (rem j 2) 0) gb:*y-jos-1* gb:*y-jos-2*)) gb:*cioc-g* gb:*arm-g*
                          (+ (/ (+ x1 x2) 2.0) -200.0))
             (setq k (1+ k))))))
     (progn
