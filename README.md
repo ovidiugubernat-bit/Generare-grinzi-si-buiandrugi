@@ -17,7 +17,7 @@ in acelasi folder).
 3. Dati coltul stanga-sus al primei desfasurate. Desfasuratele se pun intr-un rand, toate cu fata de
    sus la acelasi nivel: intai grinzile (G1, G2, ...), apoi buiandrugii (B1, B2, ...).
 4. La final apare o fereastra cu problemele gasite; fiecare e marcata pe plan cu un cerc rosu
-   numerotat, pe layerul `Erori grinzi` (marcajele vechi se sterg la fiecare rulare).
+   numerotat, pe layerul `Erori grinzi`, care nu se printeaza (marcajele vechi se sterg la fiecare rulare).
 
 Toata generarea se anuleaza cu un singur `U`.
 

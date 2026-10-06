@@ -51,8 +51,8 @@
 ;; Greselile gasite (latimea din nume diferita de plan, inaltimea din
 ;; nume diferita de grupul de cofraj, cote de nivel lipsa, capete fara
 ;; reazem, ...) apar intr-o fereastra la final si sunt marcate pe plan
-;; cu un cerc rosu numerotat (layer "Erori grinzi"; marcajele vechi se
-;; sterg la fiecare rulare).
+;; cu un cerc rosu numerotat (layer "Erori grinzi", neprintabil; marcajele
+;; vechi se sterg la fiecare rulare).
 ;; Toata generarea se anuleaza cu un singur U.
 ;; =========================================================================
 (vl-load-com)
@@ -592,6 +592,9 @@
       (entmake (append (list '(0 . "LAYER") '(100 . "AcDbSymbolTableRecord") '(100 . "AcDbLayerTableRecord")
                              (cons 2 (car l)) '(70 . 0) (cons 62 (cadr l)))
                        (if (and (caddr l) (tblsearch "LTYPE" (caddr l))) (list (cons 6 (caddr l))))))))
+  ;; marcajele de erori nu ies la print (si nici daca layerul exista deja)
+  (vl-catch-all-apply 'vla-put-plottable
+    (list (vla-item (vla-get-layers (vla-get-activedocument (vlax-get-acad-object))) gb:*l-erori*) :vlax-false))
 )
 
 (defun gb:o (en) (vlax-ename->vla-object en))
