@@ -28,12 +28,12 @@ Toata generarea se anuleaza cu un singur `U`.
 ## Ce citeste din plan
 
 - **Markers**: numele elementelor: `G1 30x40` = grinda, `B2 30x55` = buiandrug (latime x inaltime, in cm).
-  `C1 30x25` (centuri) servesc doar ca reazem; `BP ...` (buiandrugi porotherm) se ignora.
+  `C1 30x25` (centuri) servesc ca reazem si la numararea etrierilor centurilor; `BP ...` (buiandrugi porotherm) se ignora.
 - **Grinzi**: cele doua linii ale fiecarei grinzi / fiecarui buiandrug (linii sau polilinii, ortogonale).
   Elementul e fasia dintre cele doua linii in care sta textul. Liniile se pot opri la fata stalpului
   sau pot intra peste stalp. Peste un stalp intermediar elementul continua (grinda continua), daca dincolo
   nu e alt element (alt nume).
-- **Centuri**: liniile centurilor (pentru reazeme).
+- **Centuri**: liniile centurilor (pentru reazeme si pentru numararea etrierilor si barelor lor).
 - **Stalpi**: dreptunghiurile stalpilor.
 - **Axe**: liniile de axe si numele din cercurile de la capete.
 - **Cofrag**: sectiunea mica prin element (hasura + cote + cote de nivel cu field). Sectiunea apartine
@@ -108,9 +108,19 @@ grinda cu sectiune variabila, numita `G1 30x50(30x40)`:
 
 La sfarsitul randului de desfasurate, cate un detaliu pentru fiecare tip de centura de pe plan (dupa textele C..):
 sectiunea la 1:20 (placa din grupul de cofraj al centurii), 2+2 bare, etrierul in sectiune, cotele de nivel, etrierul
-desfasurat (laturi = centura - 5 cm, `etr %%C8/15`, L= field) cu `xxx buc.` pe `Bucati etrieri centuri`, si sub ele
-grupul barelor drepte (`4%%C12`, `L=12.00m`, `xxx buc.`), aliniat cu primul detaliu, in `Chenar pentru armatura`. Armatura centurii se intreaba la pornire (`<4%%C12>`).
-Bucatile `xxx` se completeaza manual; extrasul avertizeaza daca au ramas necompletate.
+desfasurat (laturi = centura - 5 cm, `etr %%C8/15`, L= field) cu numarul de bucati pe `Bucati etrieri centuri`, si sub ele
+grupul barelor drepte (`4%%C12`, `L=12.00m`, `N buc.`), aliniat cu primul detaliu, in `Chenar pentru armatura`. Armatura centurii se intreaba la pornire (`<4%%C12>`).
+Bucatile se numara din plan:
+- fasiile centurilor = doua linii paralele de pe `Centuri`, la distanta egala cu latimea unei centuri cu nume, fara
+  alta linie intre ele, pe portiunea pe care exista amandoua (colturile si intersectiile raman ale zidului care trece);
+- tipul fasiei: textul C.. aflat in ea; fara text, singura centura cu latimea ei (daca sunt mai multe cu aceeasi
+  latime si alta inaltime, se semnaleaza);
+- etrierii: pas 15 cm, fara stalpi si grinzi (G..), de la fata lor; la capetele libere (fata zidului perpendicular)
+  primul la 5 cm; ultimul la capat, ca sa nu ramana mai mult de 15 cm. Peste buiandrugi (B.., BP..) se numara;
+- barele: lungimea fasiilor plus, la fiecare capat, intrarea peste stalpul / zidul de acolo (pana la 2.5 cm de fata
+  lui), inmultita cu numarul de bare, impartita la 12 m minus o innadire de 50 de diametre, rotunjit in sus.
+In linia de comanda apare rezumatul (etrieri pe tipuri, metri de centura, bare). Daca nu iese nimic, ramane `xxx buc.`.
+Etrierul identic din grinzi (ex. G3 25x25 si C2 25x25) primeste acelasi numar la renumerotare, iar extrasul le aduna.
 
 La buiandrugi, langa fiecare etrier (la 25 mm) e figurat etrierul centurii pe `Otel centuri global` (de la fierul de
 jos al centurii pana sus), cat se vede pe zidarie, fara sa intre in stalpi. Liniile acestea nu se numara.
