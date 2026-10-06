@@ -66,6 +66,7 @@
 (setq gb:*pas-mij*  150.0)   ; pasul etrierilor in camp / la buiandrugi (mm)
 (setq gb:*desc-mica* 1200.0) ; grinzi cu lumina mai mica: toti etrierii la 15 cm (mm)
 (setq gb:*etr-dist* 50.0)    ; primul etrier de la capatul liber al buiandrugului (mm)
+(setq gb:*xx-centru* 79.0)   ; mijlocul literelor mici "xx" fata de punctul de jos al textului (h 120, mm)
 (setq gb:*lat-etr*  280.0)   ; jumatate din latimea textului "etr. %%C8/15" (mm)
 (setq gb:*diam*     "%%C8")
 (setq gb:*arm-g*    "3%%C16")  ; armatura grinzilor, sus si jos
@@ -852,8 +853,8 @@
       (setq xs (gb:x xs))
       (gb:grup doc (list (gb:o (gb:linie gb:*l-sect* (list xs (+ oy 83.7)) (list xs (+ oy 195.6))))
                          (gb:o (gb:linie gb:*l-sect* (list xs (- yb 103.5)) (list xs (- yb 215.3))))
-                         (gb:o (gb:text gb:*l-sect* (list (- xs 40.0) (+ oy 83.7)) 120.0 "xx" gb:*st-text* "BR" nil))
-                         (gb:o (gb:text gb:*l-sect* (list (- xs 40.0) (- yb 215.3)) 120.0 "xx" gb:*st-text* "BR" nil))))))
+                         (gb:o (gb:text gb:*l-sect* (list (- xs 40.0) (+ oy 139.7 (- gb:*xx-centru*))) 120.0 "xx" gb:*st-text* "BR" nil))
+                         (gb:o (gb:text gb:*l-sect* (list (- xs 40.0) (- yb 159.4 gb:*xx-centru*)) 120.0 "xx" gb:*st-text* "BR" nil))))))
   ;; armatura longitudinala: la grinzi un rand sus si unul jos (3%%C16),
   ;; la buiandrugi doar jos (3%%C12; sus sunt barele centurii); bara e cu
   ;; 25 mm mai scurta la fiecare capat; marca "y" se renumeroteaza
