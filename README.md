@@ -145,3 +145,10 @@ pe desfasurate generate cu versiunea aceasta.
   deci grupul cerc+marca de pe desfasurata nu mai e obligatoriu. Avertismente noi: etrieri nenumarati (fara marca si
   fara sectiune, sau in afara oricarui Chenar etrieri), definitii sau bare care nu ajung in tabel, numere lipsa in sirul
   marcilor, marci nerenumerotate (`y`), bucati necompletate (`xxx buc.`).
+
+## Chenarele (la generare)
+
+Fiecare desfasurata primeste chenarele de care au nevoie renumerotarea si extrasul, strict pe lungimea elementului
+(cotele de nivel raman in afara, ca desfasuratele sa poata fi apropiate fara ca chenarele sa se suprapuna):
+- `Chenar pentru armatura`: titlul (numele cu bucatile) si grupurile barelor lungi de dedesubt
+- `Chenar etrieri`: etrierii si numerele sectiunilor (sus si jos)

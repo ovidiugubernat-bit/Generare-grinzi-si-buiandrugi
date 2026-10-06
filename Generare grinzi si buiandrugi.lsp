@@ -693,7 +693,7 @@
                    (list gb:*l-bucati* 7 nil) (list gb:*l-erori* 1 nil)
                    (list gb:*l-marca* 2 nil) (list gb:*l-diam* 7 nil) (list gb:*l-lung* 7 nil)
                    (list gb:*l-ocg* 4 nil) (list gb:*l-buc-c* 7 nil) (list gb:*l-chenar-s* 23 "HIDDEN")
-                   (list gb:*l-chenar-a* 6 nil))
+                   (list gb:*l-chenar-a* 6 nil) (list gb:*l-chenar-e* 21 "HIDDEN"))
     (if (not (tblsearch "LAYER" (car l)))
       (entmake (append (list '(0 . "LAYER") '(100 . "AcDbSymbolTableRecord") '(100 . "AcDbLayerTableRecord")
                              (cons 2 (car l)) '(70 . 0) (cons 62 (cadr l)))
@@ -1039,6 +1039,14 @@
         (if (and (not (and s (member (car s) '("S" "G")))) (< x (- ub gb:*acop*)))
           (gb:linie gb:*l-ocg* (list (gb:x x) (- oy gb:*acop*)) (list (gb:x x) (- oy hc (- gb:*acop*))))))
       (gb:armatura doc ms (+ ox gb:*acop*) (+ ox lt (- gb:*acop*)) (- yb 1210.0) gb:*cioc-b* gb:*arm-b* cu)))
+  ;; chenarele pentru renumerotare si extras, strict pe lungimea elementului
+  ;; (cotele de nivel raman afara, ca desfasuratele sa poata fi apropiate):
+  ;;  - "Chenar etrieri": etrierii si numerele sectiunilor (sus si jos)
+  ;;  - "Chenar pentru armatura": titlul (numele, bucatile) si grupurile
+  ;;    barelor lungi de dedesubt
+  (gb:dreptunghi gb:*l-chenar-e* (+ ox 5.0) (+ oy 260.0) (+ ox lt -5.0) (- yb 330.0))
+  (gb:dreptunghi gb:*l-chenar-a* (- ox 100.0) (+ oy 1150.0) (+ ox lt 100.0)
+                 (- yb (cond ((/= (gb:g 'tip e) "G") 1210.0) ((> (length tr) 1) gb:*y-jos-2*) (T gb:*y-jos-1*)) 450.0))
   ;; titlul
   (setq xm (+ ox (/ lt 2.0)) titlu (strcat (gb:g 'name e) " " (itoa n) "buc."))
   (gb:text gb:*l-bucati* (list xm (+ oy 1000.0)) 140.0 titlu gb:*st-titlu* "MC" (if (= (gb:g 'tip e) "G") 6 3))
@@ -1218,6 +1226,7 @@
 (setq gb:*ds-etr*    "etrier 20 marit")
 (setq gb:*l-chenar-s* "Chenar pentru sectiuni etrieri")
 (setq gb:*l-chenar-a* "Chenar pentru armatura")
+(setq gb:*l-chenar-e* "Chenar etrieri")
 (setq gb:*l-ocg*     "Otel centuri global")
 (setq gb:*l-buc-c*   "Bucati etrieri centuri")
 (setq gb:*app*       "GBGRINDA")   ; date ascunse pe conturul desfasuratei
