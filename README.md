@@ -60,6 +60,13 @@ Toata generarea se anuleaza cu un singur `U`.
 - sectiunea `xx` (grup pe `Sectiuni grinzi`, textele cu punctul de insertie in dreapta jos), in prima treime a
   primei deschideri, de la reazemul din stanga; daca ar cadea peste textul etrierilor, se muta in aceeasi treime
   (textul etrierilor ramane mereu la mijlocul cotei lui)
+- armatura longitudinala, sub desfasurata, ca grupuri (ca la placi: bara cu ciocuri pe `FIER`, cotele ciocurilor si
+  a lungimii cu `Fier stalpi 50`, cercul marcii pe `0`, marca `y` pe `Otel marca` - se renumeroteaza -, diametrul pe
+  `Otel diametru`, `L=` ca FIELD pe `Otel lungime`); bara e cu 25 mm mai scurta la fiecare capat:
+  - grinzi: un rand sus si unul jos, `3%%C16`, ciocuri de 25 cm
+  - buiandrugi: doar jos, `3%%C12`, ciocuri de 30 cm (sus sunt barele centurii)
+- la buiandrugi, fierul de jos al centurii: o linie pe `FIER` sub cea de sus a carcasei, la inaltimea centurii minus
+  2 x 2.5 cm (centura de 25 -> 20 cm, de 30 -> 25 cm); inaltimea se ia din textul centurii in care sta buiandrugul
 - deasupra, pe `Bucati element`: `G1 30x40 1buc.` si `Scara 1:50`. Elementele identice (acelasi nume,
   aceeasi geometrie) se deseneaza o singura data, cu numarul de bucati.
 
