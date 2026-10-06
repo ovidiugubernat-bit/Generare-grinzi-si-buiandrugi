@@ -66,7 +66,7 @@
 (setq gb:*pas-mij*  150.0)   ; pasul etrierilor in camp / la buiandrugi (mm)
 (setq gb:*desc-mica* 1200.0) ; grinzi cu lumina mai mica: toti etrierii la 15 cm (mm)
 (setq gb:*etr-dist* 50.0)    ; primul etrier de la capatul liber al buiandrugului (mm)
-(setq gb:*xx-centru* 79.0)   ; mijlocul literelor mici "xx" fata de punctul de jos al textului (h 120, mm)
+(setq gb:*xx-centru* 98.3)   ; mijlocul cifrei (care inlocuieste "xx") fata de punctul de jos al textului (h 120, mm)
 (setq gb:*lat-etr*  280.0)   ; jumatate din latimea textului "etr. %%C8/15" (mm)
 (setq gb:*diam*     "%%C8")
 (setq gb:*arm-g*    "3%%C16")  ; armatura grinzilor, sus si jos
