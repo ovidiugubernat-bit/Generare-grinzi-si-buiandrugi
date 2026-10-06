@@ -879,7 +879,7 @@
   (if r r xs)
 )
 
-(defun gb:deseneaza (doc ms e n top ox oy / ua ub lt h yb x et zones desc pct pt2 a b xm s xs txs titlu cu hc tr k j x1 x2)
+(defun gb:deseneaza (doc ms e n top ox oy / ua ub lt h yb x et zones desc pct pt2 a b xm s xs xss txs titlu cu hc tr k j x1 x2)
   (setq ua (gb:g 'ua e) ub (gb:g 'ub e) lt (- ub ua) h (gb:g 'h e) yb (- oy h) tr (gb:g 'tr e))
   (defun gb:x (u) (+ ox (- u ua)))
   (defun gb:yjos (u) (- oy (gb:h-la e u)))
@@ -911,13 +911,19 @@
   ;; sectiunea "xx" sta in prima treime a primei deschideri (de la reazemul
   ;; din stanga), spre capatul treimii; daca ar cadea peste textul unei
   ;; zone, se muta ea in treime (textul ramane la mijlocul cotei)
-  (setq s (car desc))
-  (if s (setq s (list (car s) (+ (car s) (/ (- (cadr s) (car s)) 3.0)))
-              xs (- (cadr s) 50.0)))
-  (setq txs (mapcar '(lambda (z) (/ (+ (car z) (cadr z)) 2.0)) zones))
-  ;; intai in prima treime, apoi oriunde in prima deschidere
-  (if (and xs (gb:xx-loveste xs txs)) (setq xs (gb:xx-liber xs s txs)))
-  (if (and xs (gb:xx-loveste xs txs)) (setq xs (gb:xx-liber xs (car desc) txs)))
+  ;; la sectiune variabila: cate o sectiune pe fiecare tronson, in prima lui
+  ;; deschidere
+  (setq txs (mapcar '(lambda (z) (/ (+ (car z) (cadr z)) 2.0)) zones) xss nil)
+  (foreach x tr
+    (setq a (vl-some '(lambda (d) (if (>= (car d) (- (car x) gb:*tol*)) d)) desc))
+    (if a
+      (progn
+        (setq s (list (car a) (+ (car a) (/ (- (cadr a) (car a)) 3.0)))
+              xs (- (cadr s) 50.0))
+        ;; intai in prima treime, apoi oriunde in deschidere
+        (if (gb:xx-loveste xs txs) (setq xs (gb:xx-liber xs s txs)))
+        (if (gb:xx-loveste xs txs) (setq xs (gb:xx-liber xs a txs)))
+        (if (not (member xs xss)) (setq xss (append xss (list xs)))))))
   (mapcar '(lambda (z xm)
              (gb:text gb:*l-elem* (list (gb:x xm) (+ oy 148.3)) 90.0
                       (strcat "etr. " gb:*diam* "/" (itoa (caddr z))) gb:*st-text* "BC" nil))
@@ -941,11 +947,30 @@
     (entmakex (list '(0 . "CIRCLE") (cons 8 gb:*l-axe-d*) '(6 . "Continuous") '(62 . 7)
                     (list 10 x (+ oy 639.4) 0.0) '(40 . 119.2)))
     (gb:text gb:*l-axe-d* (list x (+ oy 639.4)) 140.0 (cadr ax) gb:*st-axe* "MC" 7))
+  ;; la treptele sectiunii variabile: ciocurile barelor de jos, pe carcasa.
+  ;; Bara tronsonului inalt se opreste la treapta (cioc in sus); bara
+  ;; tronsonului jos trece la nivelul ei peste stalp, pana la cealalta fata
+  ;; a lui (cioc in sus). La capete ciocurile cad pe carcasa.
+  (setq k 0)
+  (repeat (1- (length tr))
+    (setq x1 (nth k tr) x2 (nth (1+ k) tr) s (gb:reazem-la e (cadr x1)))
+    (if s
+      (progn
+        (if (> (caddr x1) (caddr x2))
+          (setq a (- (caddr s) gb:*acop*) b (+ (cadr s) gb:*acop*))
+          (setq a (+ (cadr s) gb:*acop*) b (- (caddr s) gb:*acop*)))
+        (setq hc (- (max (caddr x1) (caddr x2)) gb:*acop*) j (- (min (caddr x1) (caddr x2)) gb:*acop*))
+        (gb:linie gb:*l-fier* (list (gb:x a) (- oy hc)) (list (gb:x a) (+ (- oy hc) gb:*cioc-g*)))
+        (entmakex (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") (cons 8 gb:*l-fier*) '(100 . "AcDbPolyline")
+                        '(90 . 3) '(70 . 0)
+                        (list 10 (gb:x a) (- oy j)) (list 10 (gb:x b) (- oy j))
+                        (list 10 (gb:x b) (+ (- oy j) gb:*cioc-g*))))))
+    (setq k (1+ k)))
   ;; cota de inaltime si cotele de nivel; la sectiune variabila la ambele capete
   (gb:cote-nivel doc ms (+ ox lt) oy (caddr (last tr)) top nil)
   (if (> (length tr) 1) (gb:cote-nivel doc ms ox oy (caddr (car tr)) top T))
-  ;; sectiunea "xx"
-  (if xs
+  ;; sectiunile "xx"
+  (foreach xs xss
     (progn
       (setq xs (gb:x xs))
       (gb:grup doc (list (gb:o (gb:linie gb:*l-sect* (list xs (+ oy 83.7)) (list xs (+ oy 195.6))))

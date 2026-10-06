@@ -95,4 +95,7 @@ grinda cu sectiune variabila, numita `G1 30x50(30x40)`:
   urmeaza treapta
 - cotele de nivel si de inaltime se pun la ambele capete
 - armatura de sus e continua; jos, cate o bara pe fiecare tronson, fiecare trecand peste tot stalpul de la treapta
+- pe desfasurata (pe `FIER`), la treapta: ciocul barei de jos a tronsonului inalt si bara tronsonului jos, care trece
+  la nivelul ei peste stalp pana la cealalta fata, cu ciocul ei
+- cate o sectiune `xx` pe fiecare tronson, in prima lui deschidere
 - grupul de cofraj se verifica fata de inaltimea tronsonului in dreptul caruia sta
