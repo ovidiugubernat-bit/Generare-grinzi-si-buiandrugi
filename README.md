@@ -178,3 +178,14 @@ trebuie izolat nimic): comanda gaseste grupurile de sectiune (doua linii si doua
 numeroteaza de la 1, de la stanga la dreapta, pe randuri de sus in jos. Titlurile `N-N` ale chenarelor de sectiuni din
 selectie se schimba la fel (fosta 4-4 devine 3-3 etc.), ca sa ramana legate de grinzi; pentru sectiunea noua se
 deseneaza chenarul cu `SectiuniGrinzi`.
+
+Sectiunile care aveau acelasi numar (ex. buiandrugii identici, carora le-ati dat manual acelasi numar) raman cu un
+numar comun si dupa renumerotare.
+
+`SectiuniGrinzi` verifica numerotarea inainte sa deseneze:
+- sectiuni cu numere diferite care au aceeasi forma, dimensiuni, bare si etrieri (placa si cota nu conteaza), ex.
+  `Sectiunile 6 (B1 30x55), 7 (B2 30x55), 8 (B3 30x55) ... pot avea acelasi numar`;
+- acelasi numar pe elemente cu sectiuni diferite.
+Mesajele apar intr-o fereastra si in linia de comanda; apoi `Desenez totusi sectiunile asa? [Da/Nu] <Nu>`. La Nu
+nu se deseneaza nimic: corectati numerele pe desfasurate, rulati `RenumeroteazaSectiuni` si relansati comanda. O
+sectiune cu acelasi numar pe mai multe elemente se deseneaza o singura data.

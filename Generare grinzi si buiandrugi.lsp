@@ -1761,8 +1761,27 @@
   r
 )
 
+;; datele unei sectiuni care conteaza la armare (pentru comparare): fara
+;; numele elementului, placa (poate fi de o parte sau de alta) si cota
+(defun gb:s-cheie (s) (vl-remove-if '(lambda (p) (member (car p) '(nume placa top))) s))
+;; "2 (B1), 5 (B2)" din ((num s) ...)
+(defun gb:lista-sect (l / r)
+  (foreach a l
+    (setq r (if r (strcat r ", ") "")
+          r (strcat r (car a) " (" (gb:g 'nume (cadr a)) ")")))
+  r
+)
+
+;; "G3 25x25 si G1 30x40" din ((num s) ...)
+(defun gb:lista-nume (l / r)
+  (foreach a l
+    (setq r (if r (strcat r (if (eq a (last l)) " si " ", ")) "") r (strcat r (gb:g 'nume (cadr a)))))
+  r
+)
+
 (defun c:SectiuniGrinzi ( / *error* doc ms ss i e ed lay tip el bare zone sect x y g n d pts bb data s
                             ytop ybot h r k cadre key c p px py arm cent ds0 b nr lst val txt pas
+                            toate grupe msg opreste
                             v cand best ad)
   (setq doc (vla-get-activedocument (vlax-get-acad-object)) ms (vla-get-modelspace doc))
   (defun *error* (msg)
@@ -1876,11 +1895,46 @@
         (if (and (= (gb:d "tip" data) "G") (not (gb:g 'sus s)))
           (gb:err (list x (nth 4 c)) (strcat "Sectiunea " (car q) " (" (gb:d "nume" data) "): nu am gasit barele de sus sub element")))
         (setq key (list (car c) (fix (+ h 0.5))))
-        (if (setq g (assoc key cadre))
-          (setq cadre (subst (append g (list (cons (car q) s))) g cadre))
-          (setq cadre (append cadre (list (list key (cons (car q) s)))))))
+        ;; acelasi numar pe mai multe elemente: sectiunea se deseneaza o data
+        (cond
+          ((vl-some '(lambda (o) (= (car o) (car q))) toate))
+          ((setq g (assoc key cadre))
+           (setq cadre (subst (append g (list (cons (car q) s))) g cadre)))
+          (T (setq cadre (append cadre (list (list key (cons (car q) s)))))))
+        (setq toate (cons (list (car q) s) toate)))
+      ;; sectiuni identice cu numere diferite / acelasi numar la sectiuni diferite
+      (setq toate (gb:sort toate '(lambda (a b) (< (atoi (car a)) (atoi (car b))))))
+      (foreach a toate
+        (if (setq g (vl-some '(lambda (o) (if (equal (car o) (gb:s-cheie (cadr a)) 0.5) o)) grupe))
+          (setq grupe (subst (append g (list a)) g grupe))
+          (setq grupe (append grupe (list (list (gb:s-cheie (cadr a)) a))))))
+      (foreach g grupe
+        (setq nr nil)
+        (foreach a (cdr g) (if (not (member (car a) nr)) (setq nr (append nr (list (car a))))))
+        (if (cdr nr)
+          (setq msg (cons (strcat "Sectiunile " (gb:lista-sect (cdr g))
+                                  " au aceeasi forma, dimensiuni, bare si etrieri (placa poate diferi) - pot avea acelasi numar")
+                          msg))))
+      (foreach a toate
+        (if (and (not (vl-some '(lambda (m) (wcmatch m (strcat "Sectiunea " (car a) " *"))) msg))
+                 (vl-some '(lambda (o) (and (= (car o) (car a)) (not (equal (gb:s-cheie (cadr o)) (gb:s-cheie (cadr a)) 0.5))))
+                          toate))
+          (setq msg (cons (strcat "Sectiunea " (car a) " apare pe "
+                                  (gb:lista-nume (vl-remove-if-not '(lambda (o) (= (car o) (car a))) toate))
+                                  ", dar sectiunile difera - dati-le numere diferite")
+                          msg))))
+      (if msg
+        (progn
+          (setq msg (reverse msg))
+          (foreach m msg (princ (strcat "\n" m)))
+          (alert (strcat "Numerotarea sectiunilor:\n\n" (apply 'strcat (mapcar '(lambda (m) (strcat m "\n\n")) msg))
+                         "Puteti corecta numerele pe desfasurate (si rula RenumeroteazaSectiuni), apoi relansati comanda."))
+          (initget "Da Nu")
+          (if (= (getkword "\nDesenez totusi sectiunile asa? [Da/Nu] <Nu>: ") "Da")
+            nil
+            (setq cadre nil opreste T))))
       (if (null cadre)
-        (alert "Nu am gasit nicio sectiune numerotata pe desfasuratele generate.")
+        (if (not opreste) (alert "Nu am gasit nicio sectiune numerotata pe desfasuratele generate."))
         (progn
           ;; cadrele in ordinea primei sectiuni
           (setq cadre (mapcar '(lambda (g) (cons (car g) (gb:sort (cdr g) '(lambda (a b) (< (atoi (car a)) (atoi (car b)))))))
@@ -1937,7 +1991,7 @@
 ;; Titlurile N-N ale chenarelor de sectiuni din selectie se actualizeaza la
 ;; fel (fosta 3-3 devine noua ei eticheta), ca sa ramana legate de grinzi.
 ;; =========================================================================
-(defun c:RenumeroteazaSectiuni ( / *error* doc ss i e ed g grp tx ln gr vazut rand y0 nr harta k v nn old dup)
+(defun c:RenumeroteazaSectiuni ( / *error* doc ss i e ed g grp tx ln gr vazut rand y0 nr harta k v nn old)
   (setq doc (vla-get-activedocument (vlax-get-acad-object)))
   (defun *error* (msg)
     (vla-endundomark doc)
@@ -1982,31 +2036,29 @@
           (setq nr 0)
           (foreach r (reverse rand)
             (foreach q (gb:sort r '(lambda (a b) (< (car a) (car b))))
-              (setq nr (1+ nr) old (cdr (assoc 1 (entget (car (caddr q))))))
-              ;; vechiul numar -> noul numar (pentru titlurile N-N)
-              (if (and (/= old "") (not (wcmatch (strcase old) "XX*")))
-                (if (setq k (assoc old harta))
-                  (if (/= (cdr k) (itoa nr)) (setq dup (cons old dup)))
-                  (setq harta (cons (cons old (itoa nr)) harta))))
+              (setq old (cdr (assoc 1 (entget (car (caddr q))))))
+              ;; vechiul numar -> noul numar (si pentru titlurile N-N); sectiunile
+              ;; care aveau acelasi numar (ex. buiandrugii identici) il pastreaza comun
+              (cond
+                ((or (= old "") (wcmatch (strcase old) "XX*")) (setq nr (1+ nr) v (itoa nr)))
+                ((setq k (assoc old harta)) (setq v (cdr k)))
+                (T (setq nr (1+ nr) v (itoa nr) harta (cons (cons old v) harta))))
               (foreach t1 (caddr q)
                 (setq ed (entget t1))
-                (entmod (subst (cons 1 (itoa nr)) (assoc 1 ed) ed)))))
+                (entmod (subst (cons 1 v) (assoc 1 ed) ed)))))
           ;; titlurile N-N
           (setq k 0)
           (foreach t1 nn
             (setq ed (entget t1) v (vl-string-trim " " (cdr (assoc 1 ed))))
             (setq old (substr v 1 (vl-string-search "-" v)))
-            (if (and (setq g (assoc old harta)) (not (member old dup)) (/= (strcat (cdr g) "-" (cdr g)) v))
+            (if (and (setq g (assoc old harta)) (/= (strcat (cdr g) "-" (cdr g)) v))
               (progn
                 (entmod (subst (cons 1 (strcat (cdr g) "-" (cdr g))) (assoc 1 ed) ed))
                 (setq k (1+ k)))))
           (vla-endundomark doc)
           (princ (strcat "\nAm numerotat " (itoa nr) " sectiuni (1.." (itoa nr) ")"
                          (if (> k 0) (strcat ", am actualizat " (itoa k) " titluri N-N") "") "."))
-          (if dup
-            (alert (strcat "Acelasi numar era pe mai multe sectiuni diferite inainte ("
-                           (apply 'strcat (mapcar '(lambda (x) (strcat x " ")) dup))
-                           ") - titlurile N-N cu aceste numere nu le-am schimbat; verificati-le."))))))
+          )))
     (princ "\nNimic selectat."))
   (princ)
 )
