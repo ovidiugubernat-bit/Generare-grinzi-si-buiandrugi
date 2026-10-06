@@ -1588,6 +1588,25 @@
   r
 )
 
+;; o bara FIER din desfasurata (polilinie deschisa sau linie): segmentul
+;; orizontal cel mai lung -> (x1 x2 y cioc); cioc = 'sus daca ciocurile
+;; coboara (bara de sus), 'jos daca urca (bara de jos), nil la bara dreapta
+(defun gb:bara-geom (pts / k a b best L cioc)
+  (setq k 0)
+  (repeat (1- (length pts))
+    (setq a (nth k pts) b (nth (1+ k) pts) k (1+ k))
+    (if (and (equal (cadr a) (cadr b) 1.0) (> (abs (- (car b) (car a))) 1.0)
+             (or (null best) (> (abs (- (car b) (car a))) L)))
+      (setq best (list (min (car a) (car b)) (max (car a) (car b)) (cadr a))
+            L (abs (- (car b) (car a))))))
+  (if best
+    (progn
+      (foreach p pts
+        (if (> (abs (- (cadr p) (caddr best))) 1.0)
+          (setq cioc (if (< (cadr p) (caddr best)) 'sus 'jos))))
+      (append best (list cioc))))
+)
+
 ;; fata de jos a conturului in dreptul lui x (sectiune variabila)
 (defun gb:jos-contur (pts x ytop / n k a b r)
   (setq n (length pts) k 0)
@@ -1601,7 +1620,8 @@
 )
 
 (defun c:SectiuniGrinzi ( / *error* doc ms ss i e ed lay tip el bare zone sect x y g n d pts bb data s
-                            ytop ybot h r k cadre key c p px py arm cent ds0 b nr lst val txt pas)
+                            ytop ybot h r k cadre key c p px py arm cent ds0 b nr lst val txt pas
+                            v cand best ad)
   (setq doc (vla-get-activedocument (vlax-get-acad-object)) ms (vla-get-modelspace doc))
   (defun *error* (msg)
     (if ds0 (gb:stil-cota doc ds0))
@@ -1622,8 +1642,11 @@
            (setq el (cons (list e pts (apply 'min (mapcar 'car pts)) (apply 'max (mapcar 'car pts))
                                 (apply 'min (mapcar 'cadr pts)) (apply 'max (mapcar 'cadr pts)) data)
                           el)))
-          ;; barele: polilinii FIER cu ciocuri, din grupuri cu diametru (fara pas)
-          ((and (= tip "LWPOLYLINE") (= lay (strcase gb:*l-fier*)) (= (length (setq pts (car (gb:varfuri ed)))) 4))
+          ;; barele: polilinii FIER deschise (cu ciocuri la ambele capete, la
+          ;; unul sau drepte) sau linii, din grupuri cu diametru (fara pas)
+          ((and (member tip '("LWPOLYLINE" "LINE")) (= lay (strcase gb:*l-fier*))
+                (not (cadr (setq v (gb:varfuri ed))))
+                (setq pts (gb:bara-geom (car v))))
            (setq nr nil)
            (foreach g (gb:grupuri-ent e)
              (foreach m (gb:membri g)
@@ -1631,10 +1654,7 @@
                         (= (cdr (assoc 0 (entget m))) "TEXT")
                         (not (vl-string-search "/" (cdr (assoc 1 (entget m))))))
                  (setq nr (gb:n-diam (cdr (assoc 1 (entget m))))))))
-           (if nr
-             (setq bare (cons (list (min (car (nth 1 pts)) (car (nth 2 pts))) (max (car (nth 1 pts)) (car (nth 2 pts)))
-                                    (cadr (nth 1 pts)) (< (cadr (nth 0 pts)) (cadr (nth 1 pts))) nr)
-                              bare))))
+           (if nr (setq bare (cons (append pts (list nr)) bare))))
           ;; textele zonelor de etrieri ("etr. %%C8/10")
           ((and (= tip "TEXT") (= lay "0") (wcmatch (strcase (cdr (assoc 1 ed))) "ETR.*"))
            (setq p (cdr (assoc 11 ed)) zone (cons (list (car p) (cadr p) (cdr (assoc 1 ed))) zone)))
@@ -1668,13 +1688,35 @@
               s (list (cons 'tip (gb:d "tip" data)) (cons 'b b) (cons 'h h)
                       (cons 'placa (if (/= (gb:d "placa" data) "")
                                      (read (strcat "(" (gb:d "placa" data) ")"))))))
-        ;; barele in dreptul sectiunii
+        ;; barele de sub element
+        (setq cand nil)
         (foreach br bare
-          (if (and (<= (- (car br) 30.0) x (+ (cadr br) 30.0)) (< (caddr br) (nth 4 c)) (> (caddr br) (- (nth 4 c) 4000.0))
-                   (<= (nth 2 c) (car br)) (>= (+ (nth 3 c) 1.0) (cadr br)))
-            (if (cadddr br)
-              (if (not (assoc 'sus s)) (setq s (append s (list (cons 'sus (nth 4 br))))))
-              (if (not (assoc 'jos s)) (setq s (append s (list (cons 'jos (nth 4 br)))))))))
+          (if (and (< (caddr br) (nth 4 c)) (> (caddr br) (- (nth 4 c) 4000.0))
+                   (<= (- (nth 2 c) 1.0) (car br)) (>= (+ (nth 3 c) 1.0) (cadr br)))
+            (setq cand (cons br cand))))
+        ;; barele drepte (fara ciocuri) sunt sus sau jos dupa randul cu
+        ;; ciocuri cel mai apropiat; fara asa ceva, dupa inaltimea fata de element
+        (setq cand
+          (mapcar '(lambda (br / o dm)
+                     (if (cadddr br)
+                       br
+                       (progn
+                         (foreach o cand
+                           (if (and (cadddr o) (or (null dm) (< (abs (- (caddr o) (caddr br))) (car dm))))
+                             (setq dm (list (abs (- (caddr o) (caddr br))) (cadddr o)))))
+                         (list (car br) (cadr br) (caddr br)
+                               (cond (dm (cadr dm)) ((> (caddr br) (- (nth 4 c) 1380.0)) 'sus) ('jos))
+                               (nth 4 br)))))
+                  cand))
+        ;; in dreptul sectiunii: pe fiecare parte, bara care o cuprinde cel mai
+        ;; adanc (la o innadire, cea din care sectiunea e mai departe de capat)
+        (foreach parte '(sus jos)
+          (setq best nil)
+          (foreach br cand
+            (if (and (eq (cadddr br) parte) (<= (- (car br) 30.0) x (+ (cadr br) 30.0))
+                     (or (null best) (> (min (- x (car br)) (- (cadr br) x)) ad)))
+              (setq best br ad (min (- x (car br)) (- (cadr br) x)))))
+          (if best (setq s (append s (list (cons parte (nth 4 best)))))))
         (if (= (gb:d "tip" data) "B")
           (setq s (append s (list (cons 'hc (atof (gb:d "hc" data))) (cons 'cent arm)
                                   (cons 'tag-c (gb:d "tagc" data))))))

@@ -128,6 +128,11 @@ definitiei: laturi = sectiunea - 5 cm, colturi rotunjite, ciocuri de 10 cm, cote
 `/15` dupa pasii din desfasurata, L= field). Sectiunile aceluiasi element cu acelasi etrier stau in acelasi chenar,
 cu un singur etrier desfasurat.
 
+Barele din desfasurata pot fi modificate de mana: intrerupte, cu cioc la un singur capat sau drepte (polilinie
+sau linie pe `FIER`, in grup cu textul de diametru). Bara cu ciocuri in jos e de sus, cu ciocuri in sus e de jos; bara
+dreapta ia randul barei cu ciocuri cele mai apropiate pe verticala. La o innadire se ia bara din care sectiunea e mai
+departe de capat.
+
 La buiandrugi: etrierul centurii sus (cu cele 4 bare ale centurii - armatura se intreaba, ex. `4%%C12`, `6%%C12` =
 jumatate sus, jumatate jos) si etrierul buiandrugului pe toata inaltimea; doua marci - sus cea a etrierului centurii,
 jos cea a buiandrugului. Etrierul desfasurat al buiandrugului e deschis: trei laturi, ciocuri intoarse care adauga
