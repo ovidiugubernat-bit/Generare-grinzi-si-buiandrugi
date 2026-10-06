@@ -74,10 +74,10 @@
 (setq gb:*cioc-g*   250.0)     ; ciocurile barelor la grinzi (mm)
 (setq gb:*cioc-b*   300.0)     ; ciocurile barelor la buiandrugi (mm)
 ;; randurile barelor de grinda sub fata de jos: sus la 1085 (ciocuri in jos),
-;; jos cu 5 cm intre ciocuri (1085 + 250 + 50 + 250), al doilea rand de jos
+;; jos cu 9 cm intre ciocuri (1085 + 250 + 90 + 250), al doilea rand de jos
 ;; (sectiune variabila) inca 330 mai jos
-(setq gb:*y-jos-1*  1635.0)
-(setq gb:*y-jos-2*  1965.0)
+(setq gb:*y-jos-1*  1675.0)
+(setq gb:*y-jos-2*  2005.0)
 (setq gb:*spatiu*   1800.0)  ; distanta intre desfasurate (mm)
 (setq gb:*sect-max* 1500.0)  ; cat de departe de element poate sta sectiunea de cofraj (mm)
 
