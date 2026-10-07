@@ -706,7 +706,7 @@
                                       " (inaltime " (gb:cm hm) " cm) - verificati inaltimea"))))))
 )
 
-(defun gb:verifica-cofraj (e top / secs s dims lib fld sum t1 b1 p hh)
+(defun gb:verifica-cofraj (e top / secs s dims lib fld sum t1 b1 p hh hh2)
   (setq secs (gb:g 'secs e) p (gb:g 'p e))
   (cond
     ((null secs)
@@ -727,11 +727,14 @@
                                " = " (gb:cm sum) " cm")))))
        (if (and lib fld (setq t1 (gb:numar-cota (car lib))) (setq b1 (gb:numar-cota (car fld))))
          (progn
+           ;; de obicei textul liber e sus si field-ul jos; la o grinda intoarsa
+           ;; poate fi invers - sus e oricum cea mai mare
+           (if (< t1 b1) (setq hh2 t1 t1 b1 b1 hh2))
            (if (not (equal (* 1000.0 (- t1 b1)) hh gb:*tol*))
              (gb:err p (strcat (gb:g 'name e) ": cotele de nivel din grupul de cofraj (" (car lib) " / " (car fld)
                                ") dau " (gb:cm (* 1000.0 (- t1 b1))) " cm, numele spune " (gb:cm hh) " cm")))
            (if (not (equal t1 top 0.0005))
-             (gb:err p (strcat (gb:g 'name e) ": grupul de cofraj are cota de sus " (car lib)
+             (gb:err p (strcat (gb:g 'name e) ": grupul de cofraj are cota de sus " (gb:fmt-cota t1)
                                ", diferita de " (gb:fmt-cota top)))))
          (gb:err p (strcat (gb:g 'name e) ": grupul de cofraj nu are cotele de nivel (textul liber si textul cu field)"))))))
 )
@@ -1458,12 +1461,13 @@
 ;; stanga = partea cu v mai mic; nil daca sectiunea nu are aripi
 ;; cota de sus a unui element: cea comuna (data la pornire), in afara de
 ;; grinzile intoarse, care pleaca de la fata de jos a placii in sus - la ele
-;; cota de sus e cea din grupul lor de cofraj (ex. +3.45, cand placa e la +2.95)
-(defun gb:top-el (e top / pl sec t1)
+;; cota de sus e cea mai mare cota de nivel din grupul lor de cofraj (ex.
+;; +3.45, cand placa e la +2.95) - oricare din ele ar fi field
+(defun gb:top-el (e top / pl sec vs)
   (if (and (setq pl (gb:placa e)) (nth 3 pl)
-           (setq sec (car (gb:g 'secs e))) (cadr sec)
-           (setq t1 (gb:numar-cota (car (cadr sec)))))
-    t1
+           (setq sec (car (gb:g 'secs e)))
+           (setq vs (vl-remove nil (mapcar 'gb:numar-cota (append (cadr sec) (caddr sec))))))
+    (apply 'max vs)
     top)
 )
 
