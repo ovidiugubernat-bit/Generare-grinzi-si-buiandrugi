@@ -1351,6 +1351,12 @@
               (if (setq r (gb:placa e)) (setq lv (cons (cons (fix (+ (car r) 0.5)) 1) lv)))))
           (if lv (setq gb:*t-placa* (float (car (car (gb:sort lv '(lambda (a b) (> (cdr a) (cdr b)))))))))
           (foreach e el (gb:verifica-cofraj e top))
+          ;; si centurile cu nume care au sectiuni de cofraj: inaltimea din
+          ;; nume fata de grup (centurile fara nume au inaltimea presupusa)
+          (foreach e gb:*el*
+            (if (and (= (gb:g 'tip e) "C") (/= (gb:g 'id e) "C?") (gb:g 'secs e))
+              (gb:verifica-cofraj
+                (gb:pune 'tr (list (list (gb:g 'lo e) (gb:g 'hi e) (gb:g 'h e))) e) top)))
           (gb:verifica-buiandrugi el top)
           ;; elementele identice o singura data, cu numarul de bucati
           (foreach e el
