@@ -10,6 +10,8 @@ LISP AutoCAD (2024) care desfasoara grinzile si buiandrugii de pe planul de cofr
 | `Renumeroteaza Marci Grinzi.lsp` | `RenumeroteazaMarciGrinzi` | Renumeroteaza marcile (bare lungi, etrieri); marcile legate (etrierul centurii din sectiunea buiandrugului) primesc singure numarul |
 | `Extras grinzi.lsp` | `ExtrasGrinzi`, `GasesteMarcaGrinzi` | Extrasul de armatura (Excel sau tabel AutoCAD); avertizeaza cand o marca e sarita |
 
+Documentatie Word: `GenerareGrinziBuiandrugi - documentatie.docx` si `SectiuniGrinzi - documentatie.docx`.
+
 Se incarca la fel ca celelalte lisp-uri (vezi `acaddoc.lsp` din repo-ul de placi: puneti fisierul
 in acelasi folder).
 
@@ -38,7 +40,10 @@ Toata generarea se anuleaza cu un singur `U`.
 - **Axe**: liniile de axe si numele din cercurile de la capete.
 - **Cofrag**: sectiunea mica prin element (hasura + cote + cote de nivel cu field). Sectiunea apartine
   elementului care are aceleasi doua fete ca ea. Din grup se iau textul liber (cota de sus), textul cu
-  field (cota de jos) si cotele (ex. 14 + 11).
+  field (cota de jos) si cotele (ex. 14 + 11). Sectiunea poate fi dreptunghi (fara placa) sau in T / L; o sectiune
+  de langa element ii apartine numai daca nu e un stalp intre ele.
+- Un buiandrug fara nume `C..` aproape, dar intre doua linii de centura la cel mult 60 cm, primeste centura
+  de acolo, cu inaltimea cea mai deasa din numele centurilor.
 
 ## Ce deseneaza
 
@@ -80,7 +85,7 @@ Marca otelului (cercul cu `a`) nu se mai pune: etrierii se pot numara direct din
 ## Ce semnaleaza
 
 - latimea din nume diferita de distanta dintre linii pe plan
-- inaltimea din nume diferita de grupul de cofraj (suma cotelor, ex. 14 + 11 = 25 fata de 40)
+- inaltimea din nume diferita de grupul de cofraj (suma cotelor, ex. 14 + 11 = 25 fata de 40) - la grinzi, buiandrugi si centurile cu nume
 - cotele de nivel din grupul de cofraj care nu se potrivesc cu inaltimea din nume, sau care lipsesc
 - cota de sus din grupul de cofraj diferita de cea data la pornire
 - grinda fara grup de cofraj pe plan
