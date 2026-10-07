@@ -137,7 +137,8 @@ jos al centurii pana sus), cat se vede pe zidarie, fara sa intre in stalpi. Lini
 2. `SectiuniGrinzi`: selectati desfasuratele, apoi coltul stanga-sus al primului chenar.
 
 Pentru fiecare numar se deseneaza, intr-un `Chenar pentru sectiuni etrieri`, sectiunea la 1:20: titlul `N-N`,
-`Sc 1:20`, conturul cu placa (din grupul de cofraj, cu rupere; fara placa daca planul nu are grupuri de cofraj),
+`Sc 1:20`, conturul cu placa (din grupul de cofraj, cu rupere; fara placa daca planul nu are grupuri de cofraj;
+la grinda intoarsa - placa la partea de jos a grupului de cofraj - placa jos si sus dreptunghi curat),
 etrierul cu ciocuri, barele de sus si de jos (din grupurile de armatura de sub element, in dreptul sectiunii), etichetele,
 cota de latime, cotele de nivel (cota de jos = field) si indicatorul de marca. Sub ea, etrierul desfasurat (grupul
 definitiei: laturi = sectiunea - 5 cm, colturi rotunjite, ciocuri de 10 cm, cotele, marca `y`, `etr %%C8/10/15` sau

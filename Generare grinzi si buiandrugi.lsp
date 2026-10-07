@@ -1092,7 +1092,8 @@
                     (list (gb:date-scrie
                             (list (cons "tip" (gb:g 'tip e)) (cons "nume" (gb:g 'name e))
                                   (cons "b" (gb:rtos (gb:g 'b e) 1)) (cons "top" (gb:rtos top 3))
-                                  (cons "placa" (if pc (strcat (gb:rtos (car pc) 1) (if (cadr pc) " T" " nil") (if (caddr pc) " T" " nil")) ""))
+                                  (cons "placa" (if pc (strcat (gb:rtos (car pc) 1) (if (cadr pc) " T" " nil") (if (caddr pc) " T" " nil")
+                                                               (if (nth 3 pc) " T" "")) ""))
                                   (cons "hc" (gb:rtos hc 1))
                                   (cons "tagc" (strcat "C" (gb:rtos (if ce (gb:g 'b ce) (gb:g 'b e)) 0) "x" (gb:rtos hc 0))))))))
   (gb:poli gb:*l-fier* (mapcar '(lambda (p) (list (+ ox (car p)) (+ oy (cadr p)))) (gb:contur tr ua lt gb:*acop*)))
@@ -1455,6 +1456,11 @@
 
 ;; placa din sectiunea de cofraj a elementului: (grosime-mm stanga dreapta),
 ;; stanga = partea cu v mai mic; nil daca sectiunea nu are aripi
+;; placa din prima sectiune de cofraj a elementului: (grosime stanga dreapta jos)
+;; sau nil. "jos" = grinda intoarsa: placa e la partea de jos a sectiunii, iar
+;; elementul urca de la ea. Fata de sus a sectiunii de cofraj e, ca la COFRAJ,
+;; la u minim pe elementele orizontale (sectiunea creste spre dreapta) si la
+;; u maxim pe cele verticale (sectiunea creste in jos).
 (defun gb:placa (e / sec dr q fl us u1 u2 top t1 st dr2)
   (if (setq sec (car (gb:g 'secs e)))
     (progn
@@ -1468,27 +1474,45 @@
       (if fl
         (progn
           (setq u1 (apply 'min fl) u2 (apply 'max fl)
-                top (if (equal u1 (apply 'min us) gb:*tol*) u1 u2)
+                top (if (= dr 0) (apply 'min us) (apply 'max us))
                 t1 (abs (- u2 u1)))
-          (if (> t1 gb:*tol*) (list t1 st dr2))))))
+          (if (> t1 gb:*tol*)
+            (list t1 st dr2 (not (or (equal u1 top gb:*tol*) (equal u2 top gb:*tol*)))))))))
 )
 
 ;; conturul sectiunii (layer 0): inima b x h, cu placa (aripi rupte) pe
 ;; partile cerute; x0 = fata stanga a inimii, y0 = fata de sus.
 ;; Intoarce (x-stanga x-dreapta) ale desenului.
-(defun gb:s-contur (x0 y0 W H tp sl sr / pts xe z1 z2)
-  (setq pts (list (list x0 (- y0 H))))
-  (if (and tp sl)
-    (setq xe (- x0 gb:*s-placa*) z1 (+ (- y0 tp) (* 0.358 tp)) z2 (+ (- y0 tp) (* 0.565 tp))
-          pts (append pts (list (list x0 (- y0 tp)) (list xe (- y0 tp)) (list xe z1) (list (- xe 61.0) z1)
-                                (list (+ xe 61.0) z2) (list xe z2) (list xe y0))))
-    (setq pts (append pts (list (list x0 y0)))))
-  (if (and tp sr)
-    (setq xe (+ x0 W gb:*s-placa*) z1 (- y0 (* 0.358 tp)) z2 (- y0 (* 0.565 tp))
-          pts (append pts (list (list xe y0) (list xe z1) (list (+ xe 61.0) z1) (list (- xe 61.0) z2)
-                                (list xe z2) (list xe (- y0 tp)) (list (+ x0 W) (- y0 tp)))))
-    (setq pts (append pts (list (list (+ x0 W) y0)))))
-  (setq pts (append pts (list (list (+ x0 W) (- y0 H)))))
+(defun gb:s-contur (x0 y0 W H tp sl sr jos / pts xe z1 z2 yb yt)
+  (if (and tp jos (or sl sr))
+    ;; grinda intoarsa: placa jos, intre yb si yt, sus dreptunghi curat
+    (progn
+      (setq yb (- y0 H) yt (+ (- y0 H) tp))
+      (setq pts (if sl
+                  (progn
+                    (setq xe (- x0 gb:*s-placa*) z1 (+ yb (* 0.358 tp)) z2 (+ yb (* 0.565 tp)))
+                    (list (list xe yb) (list xe z1) (list (- xe 61.0) z1) (list (+ xe 61.0) z2)
+                          (list xe z2) (list xe yt) (list x0 yt)))
+                  (list (list x0 yb))))
+      (setq pts (append pts (list (list x0 y0) (list (+ x0 W) y0))))
+      (if sr
+        (setq xe (+ x0 W gb:*s-placa*) z1 (- yt (* 0.358 tp)) z2 (- yt (* 0.565 tp))
+              pts (append pts (list (list (+ x0 W) yt) (list xe yt) (list xe z1) (list (+ xe 61.0) z1)
+                                    (list (- xe 61.0) z2) (list xe z2) (list xe yb))))
+        (setq pts (append pts (list (list (+ x0 W) yb))))))
+    (progn
+      (setq pts (list (list x0 (- y0 H))))
+      (if (and tp sl)
+        (setq xe (- x0 gb:*s-placa*) z1 (+ (- y0 tp) (* 0.358 tp)) z2 (+ (- y0 tp) (* 0.565 tp))
+              pts (append pts (list (list x0 (- y0 tp)) (list xe (- y0 tp)) (list xe z1) (list (- xe 61.0) z1)
+                                    (list (+ xe 61.0) z2) (list xe z2) (list xe y0))))
+        (setq pts (append pts (list (list x0 y0)))))
+      (if (and tp sr)
+        (setq xe (+ x0 W gb:*s-placa*) z1 (- y0 (* 0.358 tp)) z2 (- y0 (* 0.565 tp))
+              pts (append pts (list (list xe y0) (list xe z1) (list (+ xe 61.0) z1) (list (- xe 61.0) z2)
+                                    (list xe z2) (list xe (- y0 tp)) (list (+ x0 W) (- y0 tp)))))
+        (setq pts (append pts (list (list (+ x0 W) y0)))))
+      (setq pts (append pts (list (list (+ x0 W) (- y0 H)))))))
   (gb:poli gb:*l-elem* pts)
   (list (if (and tp sl) (- x0 gb:*s-placa* 61.0) x0) (if (and tp sr) (+ x0 W gb:*s-placa* 61.0) (+ x0 W)))
 )
@@ -1652,7 +1676,7 @@
 ;; o sectiune completa (fara etrierul desfasurat): contur, etrier(i),
 ;; bare, etichete, cota de latime, indicator(i). x0,y0 = inima stanga-sus.
 ;; s = lista de proprietati:
-;;   'b 'h (mm), 'placa (t st dr) sau nil, 'sus (n d) 'jos (n d),
+;;   'b 'h (mm), 'placa (t st dr [jos]) sau nil (jos = grinda intoarsa), 'sus (n d) 'jos (n d),
 ;;   'tip "G"/"B"/"C", 'hc 'bc (centura, la buiandrugi), 'cent (n d) bare
 ;;   centura la buiandrugi, 'tag-c tag-ul etrierului centurii,
 ;;   'tag-e tag-ul etrierului propriu, 'tag-b tag-ul barelor (centuri)
@@ -1661,7 +1685,7 @@
 (defun gb:sectiune (doc ms x0 y0 s / W H pl ext xl xr ys yb sus jos tp sl sr hc yc xsus xjos cent)
   (setq W (* gb:*sc* (gb:g 'b s)) H (* gb:*sc* (gb:g 'h s)) pl (gb:g 'placa s)
         tp (if pl (* gb:*sc* (car pl))) sl (if pl (cadr pl)) sr (if pl (caddr pl)))
-  (setq ext (gb:s-contur x0 y0 W H tp sl sr) xl (car ext) xr (cadr ext))
+  (setq ext (gb:s-contur x0 y0 W H tp sl sr (and pl (nth 3 pl))) xl (car ext) xr (cadr ext))
   (setq sus (gb:g 'sus s) jos (gb:g 'jos s))
   (cond
     ;; buiandrug: etrierul centurii sus, al buiandrugului pe toata inaltimea
