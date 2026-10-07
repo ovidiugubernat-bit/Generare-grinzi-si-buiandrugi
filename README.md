@@ -10,7 +10,7 @@ LISP AutoCAD (2024) care desfasoara grinzile si buiandrugii de pe planul de cofr
 | `Renumeroteaza Marci Grinzi.lsp` | `RenumeroteazaMarciGrinzi` | Renumeroteaza marcile (bare lungi, etrieri); marcile legate (etrierul centurii din sectiunea buiandrugului) primesc singure numarul |
 | `Extras grinzi.lsp` | `ExtrasGrinzi`, `GasesteMarcaGrinzi` | Extrasul de armatura (Excel sau tabel AutoCAD); avertizeaza cand o marca e sarita |
 
-Documentatie Word: `GenerareGrinziBuiandrugi - documentatie.docx` si `SectiuniGrinzi - documentatie.docx`.
+Documentatie Word (toate trei comenzile din `Generare grinzi si buiandrugi.lsp`): `Instructiuni de folosire lisp Generare Grinzi Buiandrugi, sectiuni si renumerotare.docx`.
 
 Se incarca la fel ca celelalte lisp-uri (vezi `acaddoc.lsp` din repo-ul de placi: puneti fisierul
 in acelasi folder).
