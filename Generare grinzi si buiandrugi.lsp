@@ -1429,6 +1429,7 @@
 (setq gb:*sc*        2.5)      ; 1:20 fata de 1:50
 (setq gb:*s-acop*    62.5)     ; acoperirea (25 mm) la scara sectiunii
 (setq gb:*s-bara*    35.0)     ; distanta etrier - marginea barei, la scara sectiunii
+(setq gb:*r-bara*    25.0)     ; raza cercului unei bare in sectiune (diametru 50), aceeasi la orice diametru
 (setq gb:*s-placa*   242.9)    ; cat iese placa in afara inimii, in sectiune
 (setq gb:*r-colt*    59.8)     ; raza colturilor etrierului desfasurat
 (setq gb:*cioc-e*    250.0)    ; ciocul etrierului (10 cm) la scara sectiunii
@@ -1506,7 +1507,7 @@
 ;; n bare de diametru d (mm), la cota y, intre fetele etrierului; intoarce
 ;; lista x-urilor
 (defun gb:s-bare (x0 W y n d / r xa xb k xs pl)
-  (setq r (* d 0.5 gb:*sc*)
+  (setq r gb:*r-bara*
         xa (+ x0 gb:*s-acop* gb:*s-bara* r) xb (- (+ x0 W) gb:*s-acop* gb:*s-bara* r) k 0)
   (repeat n
     (setq xs (cons (if (> n 1) (+ xa (* k (/ (- xb xa) (1- n)))) (/ (+ xa xb) 2.0)) xs) k (1+ k)))
@@ -1671,15 +1672,15 @@
      (setq yc (+ (- y0 hc) gb:*s-acop* gb:*s-bara*))
      (if cent
        (progn
-         (setq xsus (gb:s-bare x0 W (- y0 gb:*s-acop* gb:*s-bara* (* 1.25 (cadr cent))) (/ (car cent) 2) (cadr cent)))
-         (gb:s-bare x0 W (+ yc (* 1.25 (cadr cent))) (- (car cent) (/ (car cent) 2)) (cadr cent))
-         (gb:s-eticheta (append xsus (list (- (+ x0 W) gb:*s-acop* gb:*s-bara* (* 1.25 (cadr cent)))))
-                        (+ yc (* 1.25 (cadr cent))) (+ y0 279.0) (- x0 785.4) (- x0 730.4)
+         (setq xsus (gb:s-bare x0 W (- y0 gb:*s-acop* gb:*s-bara* gb:*r-bara*) (/ (car cent) 2) (cadr cent)))
+         (gb:s-bare x0 W (+ yc gb:*r-bara*) (- (car cent) (/ (car cent) 2)) (cadr cent))
+         (gb:s-eticheta (append xsus (list (- (+ x0 W) gb:*s-acop* gb:*s-bara* gb:*r-bara*)))
+                        (+ yc gb:*r-bara*) (+ y0 279.0) (- x0 785.4) (- x0 730.4)
                         (strcat (itoa (car cent)) "%%C" (itoa (cadr cent)) " din centura") gb:*l-elem* T)))
      (if jos
        (progn
-         (setq xjos (gb:s-bare x0 W (+ (- y0 H) gb:*s-acop* gb:*s-bara* (* 1.25 (cadr jos))) (car jos) (cadr jos)))
-         (gb:s-eticheta xjos (+ (- y0 H) gb:*s-acop* gb:*s-bara* (* 1.25 (cadr jos))) (- y0 H 544.1)
+         (setq xjos (gb:s-bare x0 W (+ (- y0 H) gb:*s-acop* gb:*s-bara* gb:*r-bara*) (car jos) (cadr jos)))
+         (gb:s-eticheta xjos (+ (- y0 H) gb:*s-acop* gb:*s-bara* gb:*r-bara*) (- y0 H 544.1)
                         (- x0 513.9) (- x0 239.4) (strcat (itoa (car jos)) "%%C" (itoa (cadr jos))) gb:*l-diam* nil)))
      ;; marca de sus: etrierul centurii; cea de jos: etrierul buiandrugului
      (gb:s-indicator doc (- (+ x0 gb:*s-acop*) 612.7) (+ (- y0 hc) gb:*s-acop* 93.5)
@@ -1690,14 +1691,14 @@
      (gb:s-etrier x0 y0 W H T)
      (if sus
        (progn
-         (setq ys (- y0 gb:*s-acop* gb:*s-bara* (* 1.25 (cadr sus))))
+         (setq ys (- y0 gb:*s-acop* gb:*s-bara* gb:*r-bara*))
          (setq xsus (gb:s-bare x0 W ys (car sus) (cadr sus)))
          (gb:s-eticheta xsus ys (+ y0 221.6) (- x0 497.8) (- x0 245.4)
                         (strcat (itoa (+ (car sus) (if (= (gb:g 'tip s) "C") (car jos) 0))) "%%C" (itoa (cadr sus)))
                         gb:*l-elem* nil)))
      (if jos
        (progn
-         (setq yb (+ (- y0 H) gb:*s-acop* gb:*s-bara* (* 1.25 (cadr jos))))
+         (setq yb (+ (- y0 H) gb:*s-acop* gb:*s-bara* gb:*r-bara*))
          (setq xjos (gb:s-bare x0 W yb (car jos) (cadr jos)))
          (if (/= (gb:g 'tip s) "C")
            (gb:s-eticheta xjos yb (- y0 H 544.1) (- x0 513.9) (- x0 239.4)
