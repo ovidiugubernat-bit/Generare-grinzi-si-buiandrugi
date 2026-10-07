@@ -262,9 +262,11 @@
                                  (cons 'p (list (car p) (cadr p))) (cons 'dir dr))
                            gb:*mk*)))
       ;; sectiunile de cofraj si cotele lor
+      ;; sectiunea fara placa e un simplu dreptunghi (4 varfuri), cu placa
+      ;; e in T sau L; triunghiurile cotelor de nivel nu intra
       ((and (= lay gb:*l-cofrag*) (= tip "LWPOLYLINE"))
-       (setq pts (car (gb:varfuri ed)))
-       (if (>= (length pts) 6) (setq gb:*cof* (cons (list e pts) gb:*cof*))))
+       (setq v (gb:varfuri ed) pts (car v))
+       (if (and (cadr v) (>= (length pts) 4)) (setq gb:*cof* (cons (list e pts) gb:*cof*))))
       ((and (= lay gb:*l-cofrag*) (= tip "DIMENSION"))
        ;; marimea cotei in mm, din punctele ei (valoarea din desen e deja
        ;; inmultita cu factorul stilului, ex. in cm)
@@ -604,6 +606,37 @@
               (and (> (gb:suprap (cadr k) (cadddr k) (gb:g 'va e) (gb:g 'vb e)) gb:*tol*)
                    (>= (car k) (- a gb:*tol*)) (<= (caddr k) (+ b gb:*tol*))))
            gb:*col*)
+)
+
+;; Centura in care sta un buiandrug fara centura cu nume (C..) aproape:
+;; daca buiandrugul e intre doua linii de centura (layer Centuri), la o
+;; distanta de cel mult 60 cm una de alta, centura e acolo, doar ca nu are
+;; text. Inaltimea ei = cea mai deasa inaltime din numele centurilor.
+;; Se adauga la elemente, ca sa-si primeasca si sectiunile de cofraj.
+(defun gb:centura-fara-nume (e / dr pu vm sus jos ia ib iv x lo hi hs r h)
+  (setq dr (gb:g 'dir e) vm (/ (+ (gb:g 'va e) (gb:g 'vb e)) 2.0)
+        pu (/ (+ (gb:g 'lo e) (gb:g 'hi e)) 2.0))
+  (foreach s (gb:paralele gb:*l-centuri* dr)
+    (if (<= (- (cadr s) gb:*tol*) pu (+ (caddr s) gb:*tol*))
+      (cond
+        ((>= (car s) (- (gb:g 'vb e) gb:*tol*)) (if (or (null sus) (< (car s) sus)) (setq sus (car s))))
+        ((<= (car s) (+ (gb:g 'va e) gb:*tol*)) (if (or (null jos) (> (car s) jos)) (setq jos (car s)))))))
+  (if (and sus jos (<= (- sus jos) 600.0))
+    (progn
+      (setq ia (gb:uneste (mapcar 'cdr (vl-remove-if-not '(lambda (s) (equal (car s) jos gb:*tol*)) (gb:paralele gb:*l-centuri* dr))))
+            ib (gb:uneste (mapcar 'cdr (vl-remove-if-not '(lambda (s) (equal (car s) sus gb:*tol*)) (gb:paralele gb:*l-centuri* dr))))
+            iv (gb:intersectie ia ib))
+      (foreach x iv (if (<= (- (car x) gb:*tol*) pu (+ (cadr x) gb:*tol*)) (setq lo (car x) hi (cadr x))))
+      (foreach m gb:*mk*
+        (if (= (gb:g 'tip m) "C")
+          (if (setq r (assoc (gb:g 'h m) hs)) (setq hs (subst (cons (car r) (1+ (cdr r))) r hs)) (setq hs (cons (cons (gb:g 'h m) 1) hs)))))
+      (if (and lo hs)
+        (progn
+          (setq h (car (car (gb:sort hs '(lambda (a b) (> (cdr a) (cdr b)))))))
+          (list (cons 'tip "C") (cons 'num 0) (cons 'b (- sus jos)) (cons 'id "C?")
+                (cons 'h h) (cons 'name (strcat "centura fara nume langa " (gb:g 'name e)))
+                (cons 'p (gb:uv dr pu vm)) (cons 'dir dr)
+                (cons 'lo lo) (cons 'hi hi) (cons 'va jos) (cons 'vb sus))))))
 )
 
 ;; elementul caruia ii apartine o sectiune de cofraj (aceleasi doua fete,
@@ -1271,6 +1304,16 @@
                                el)))
           (setq el (cons e el))))
       (setq gb:*el* (reverse el) el nil)
+      ;; centurile fara nume in care stau buiandrugi
+      (foreach e gb:*el*
+        (if (and (= (gb:g 'tip e) "B") (null (gb:centura-el e))
+                 (setq r (gb:centura-fara-nume e))
+                 (not (vl-some '(lambda (o) (and (= (gb:g 'tip o) "C")
+                                                 (equal (gb:g 'va o) (gb:g 'va r) gb:*tol*)
+                                                 (equal (gb:g 'lo o) (gb:g 'lo r) gb:*tol*)))
+                               el)))
+          (setq el (cons r el))))
+      (setq gb:*el* (append gb:*el* (reverse el)) el nil)
       ;; sectiunile de cofraj, la elementele lor
       (foreach c gb:*cof*
         (if (setq e (gb:proprietar (cadr c)))
