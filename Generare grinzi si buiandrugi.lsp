@@ -1351,7 +1351,7 @@
               (setq lv (subst (cons (car r) (1+ (cdr r))) r lv))
               (if (setq r (gb:placa e)) (setq lv (cons (cons (fix (+ (car r) 0.5)) 1) lv)))))
           (if lv (setq gb:*t-placa* (float (car (car (gb:sort lv '(lambda (a b) (> (cdr a) (cdr b)))))))))
-          (foreach e el (gb:verifica-cofraj e top))
+          (foreach e el (gb:verifica-cofraj e (gb:top-el e top)))
           ;; si centurile cu nume care au sectiuni de cofraj: inaltimea din
           ;; nume fata de grup (centurile fara nume au inaltimea presupusa)
           (foreach e gb:*el*
@@ -1382,7 +1382,7 @@
               (foreach g grupe
                 ;; loc si pentru cotele de nivel de la capatul stang (sectiune variabila)
                 (if (> (length (gb:g 'tr (cadr g))) 1) (setq ox (+ ox 1100.0)))
-                (setq ox (+ ox (gb:deseneaza doc ms (cadr g) (caddr g) top ox oy) gb:*spatiu*) n (1+ n)))
+                (setq ox (+ ox (gb:deseneaza doc ms (cadr g) (caddr g) (gb:top-el (cadr g) top) ox oy) gb:*spatiu*) n (1+ n)))
               ;; la urma: detaliile centurilor (cate unul pe tip) si barele lor drepte
               (setq lv nil)
               (foreach c (gb:sort (vl-remove-if-not '(lambda (o) (= (gb:g 'tip o) "C")) gb:*el*)
@@ -1456,6 +1456,17 @@
 
 ;; placa din sectiunea de cofraj a elementului: (grosime-mm stanga dreapta),
 ;; stanga = partea cu v mai mic; nil daca sectiunea nu are aripi
+;; cota de sus a unui element: cea comuna (data la pornire), in afara de
+;; grinzile intoarse, care pleaca de la fata de jos a placii in sus - la ele
+;; cota de sus e cea din grupul lor de cofraj (ex. +3.45, cand placa e la +2.95)
+(defun gb:top-el (e top / pl sec t1)
+  (if (and (setq pl (gb:placa e)) (nth 3 pl)
+           (setq sec (car (gb:g 'secs e))) (cadr sec)
+           (setq t1 (gb:numar-cota (car (cadr sec)))))
+    t1
+    top)
+)
+
 ;; placa din prima sectiune de cofraj a elementului: (grosime stanga dreapta jos)
 ;; sau nil. "jos" = grinda intoarsa: placa e la partea de jos a sectiunii, iar
 ;; elementul urca de la ea. Fata de sus a sectiunii de cofraj e, ca la COFRAJ,
@@ -1731,7 +1742,9 @@
            (foreach x xjos (gb:linie gb:*l-elem* (list x yb) (list x ys))))))
      (if (= (gb:g 'tip s) "C")
        (gb:s-indicator doc (- x0 497.8 149.3) (+ y0 221.6) (- x0 497.8) 149.3 (gb:g 'tag-b s)))
-     (gb:s-indicator doc (- (+ x0 gb:*s-acop*) 450.6) (+ (- y0 H) gb:*s-acop* 108.9)
+     ;; la grinda intoarsa marca urca deasupra placii, ca sa nu stea peste ea
+     (gb:s-indicator doc (- (+ x0 gb:*s-acop*) 450.6)
+                     (+ (- y0 H) gb:*s-acop* 108.9 (if (and tp pl (nth 3 pl)) tp 0.0))
                      (+ x0 gb:*s-acop*) 149.3 (gb:g 'tag-e s))))
   ;; cota de latime, sub sectiune
   (gb:cota-stil ms (list x0 (- y0 H)) (list (+ x0 W) (- y0 H)) (list (+ x0 W) (- y0 H 307.6)) 0.0 gb:*ds-20*)
