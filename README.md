@@ -40,7 +40,7 @@ Toata generarea se anuleaza cu un singur `U`.
 - **Axe**: liniile de axe si numele din cercurile de la capete.
 - **Cofrag**: sectiunea mica prin element (hasura + cote + cote de nivel cu field). Sectiunea apartine
   elementului care are aceleasi doua fete ca ea. Din grup se iau textul liber (cota de sus), textul cu
-  field (cota de jos) si cotele (ex. 14 + 11). Sectiunea poate fi dreptunghi (fara placa) sau in T / L; o sectiune
+  field (cota de jos) si cotele (ex. 14 + 11); daca ambele cote sunt text simplu, cea mai mica tine loc de field. Sectiunea poate fi dreptunghi (fara placa) sau in T / L; o sectiune
   de langa element ii apartine numai daca nu e un stalp intre ele.
 - Un buiandrug fara nume `C..` aproape, dar intre doua linii de centura la cel mult 60 cm, primeste centura
   de acolo, cu inaltimea cea mai deasa din numele centurilor.
@@ -203,7 +203,8 @@ Sectiunile care aveau acelasi numar (ex. buiandrugii identici, carora le-ati dat
 numar comun si dupa renumerotare.
 
 `SectiuniGrinzi` verifica numerotarea inainte sa deseneze:
-- sectiuni cu numere diferite care au aceeasi forma, dimensiuni, bare si etrieri (placa si cota nu conteaza), ex.
+- sectiuni cu numere diferite care au aceeasi forma, dimensiuni, cote de nivel, placa (grosime, una sau doua parti,
+  sus sau jos), bare si etrieri - placa in stanga sau in dreapta e aceeasi sectiune, intoarsa; ex.
   `Sectiunile 6 (B1 30x55), 7 (B2 30x55), 8 (B3 30x55) ... pot avea acelasi numar`;
 - acelasi numar pe elemente cu sectiuni diferite.
 Mesajele apar intr-o fereastra si in linia de comanda; apoi `Desenez totusi sectiunile asa? [Da/Nu] <Nu>`. La Nu

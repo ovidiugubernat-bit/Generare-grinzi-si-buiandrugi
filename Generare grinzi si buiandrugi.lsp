@@ -216,6 +216,11 @@
           (if (gb:are-field med)
             (if (not (member (cdr (assoc 1 med)) fld)) (setq fld (cons (cdr (assoc 1 med)) fld)))
             (if (not (member (cdr (assoc 1 med)) lib)) (setq lib (cons (cdr (assoc 1 med)) lib))))))))
+  ;; fara field (ambele cote scrise ca text simplu): cota cea mai de jos tine
+  ;; locul field-ului, ca valorile sa se verifice la fel
+  (if (and (null fld) (cdr lib) (vl-every 'gb:numar-cota lib))
+    (setq lib (gb:sort lib '(lambda (a b) (> (gb:numar-cota a) (gb:numar-cota b))))
+          fld (list (last lib)) lib (reverse (cdr (reverse lib)))))
   (list lib fld)
 )
 
@@ -1979,9 +1984,15 @@
   r
 )
 
-;; datele unei sectiuni care conteaza la armare (pentru comparare): fara
-;; numele elementului, placa (poate fi de o parte sau de alta) si cota
-(defun gb:s-cheie (s) (vl-remove-if '(lambda (p) (member (car p) '(nume placa top))) s))
+;; datele unei sectiuni care conteaza la comparare: fara numele elementului;
+;; cota de sus conteaza, iar placa prin grosime, cate parti are si daca e
+;; jos (grinda intoarsa) - nu si de care parte e (stanga / dreapta e aceeasi
+;; sectiune, intoarsa)
+(defun gb:s-cheie (s / pl)
+  (setq pl (gb:g 'placa s))
+  (append (vl-remove-if '(lambda (p) (member (car p) '(nume placa))) s)
+          (list (cons 'placa-cheie (if pl (list (car pl) (+ (if (cadr pl) 1 0) (if (caddr pl) 1 0)) (if (nth 3 pl) T nil))))))
+)
 ;; "2 (B1), 5 (B2)" din ((num s) ...)
 (defun gb:lista-sect (l / r)
   (foreach a l
@@ -2131,7 +2142,7 @@
         (foreach a (cdr g) (if (not (member (car a) nr)) (setq nr (append nr (list (car a))))))
         (if (cdr nr)
           (setq msg (cons (strcat "Sectiunile " (gb:lista-sect (cdr g))
-                                  " au aceeasi forma, dimensiuni, bare si etrieri (placa poate diferi) - pot avea acelasi numar")
+                                  " au aceeasi forma, dimensiuni, cote de nivel, placa, bare si etrieri - pot avea acelasi numar")
                           msg))))
       (foreach a toate
         (if (and (not (vl-some '(lambda (m) (wcmatch m (strcat "Sectiunea " (car a) " *"))) msg))
