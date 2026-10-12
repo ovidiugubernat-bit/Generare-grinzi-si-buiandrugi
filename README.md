@@ -21,7 +21,7 @@ in acelasi folder).
 2. Comanda propune cota de sus gasita pe grupurile de cofraj (ex. `<+2.75>`): Enter daca e buna,
    sau scrieti alta.
 3. Dati coltul stanga-sus al primei desfasurate. Desfasuratele se pun intr-un rand, toate cu fata de
-   sus la acelasi nivel: intai grinzile (G1, G2, ...), apoi buiandrugii (B1, B2, ...).
+   sus la acelasi nivel: intai grinzile (G1, G2, ...), apoi grinzile in placa (GP5, ...), apoi buiandrugii (B1, B2, ...).
 4. La final apare o fereastra cu problemele gasite; fiecare e marcata pe plan cu un cerc rosu
    numerotat, pe layerul `Erori grinzi`, care nu se printeaza (marcajele vechi se sterg la fiecare rulare).
 
@@ -29,7 +29,7 @@ Toata generarea se anuleaza cu un singur `U`.
 
 ## Ce citeste din plan
 
-- **Markers**: numele elementelor: `G1 30x40` = grinda, `B2 30x55` = buiandrug (latime x inaltime, in cm).
+- **Markers**: numele elementelor: `G1 30x40` = grinda, `GP5 25x15` = grinda in placa, `B2 30x55` = buiandrug (latime x inaltime, in cm).
   `C1 30x25` (centuri) servesc ca reazem si la numararea etrierilor centurilor; `BP ...` (buiandrugi porotherm) se ignora.
 - **Grinzi**: cele doua linii ale fiecarei grinzi / fiecarui buiandrug (linii sau polilinii, ortogonale).
   Elementul e fasia dintre cele doua linii in care sta textul. Liniile se pot opri la fata stalpului
@@ -91,7 +91,8 @@ Marca otelului (cercul cu `a`) nu se mai pune: etrierii se pot numara direct din
 - grinda fara grup de cofraj pe plan
 - buiandrug cu latimea din nume diferita de grosimea zidului (distanta dintre liniile de centura in care sta)
 - buiandrugi cu cota de jos diferita de a celorlalti (de obicei toti au aceeasi, ex. +2.20)
-- capat de grinda care nu reazema pe stalp sau grinda
+- capat de grinda care nu reazema pe stalp sau grinda (la grinzile in placa: pe centura, grinda sau stalp)
+- grinda in placa cu inaltimea diferita de grosimea placii, sau numerotata inaintea grinzilor G
 - text de element care nu e intre doua linii
 - acelasi nume (numar) la axe paralele diferite
 - acelasi nume la elemente cu lungimi / reazeme diferite (se face cate o desfasurata pentru fiecare)
@@ -108,6 +109,19 @@ grinda cu sectiune variabila, numita `G1 30x50(30x40)`:
   la nivelul ei peste stalp pana la cealalta fata, cu ciocul ei
 - cate o sectiune `xx` pe fiecare tronson, in prima lui deschidere
 - grupul de cofraj se verifica fata de inaltimea tronsonului in dreptul caruia sta
+
+## Grinzi in placa (GP)
+
+`GP5 25x15` (intre doua linii pe `Grinzi`) e o grinda in placa: inalta cat placa, cu fata de sus la nivelul placii;
+numarul vine dupa al grinzilor G (G1...G4, apoi GP5). Desfasurata e ca la grinzi, cu diferentele:
+- reazemele = centurile (fasiile de pe `Centuri`), grinzile si stalpii pe care ii traverseaza sau in care se termina,
+  desenate ca dreptunghi hasurat ANSI31 de 10 cm sub ea; lantul de jos: reazemele si deschiderile
+- etrierii la 15 cm de la un capat la altul, si peste reazeme (restul impartirii, egal la capete); lantul de sus e o
+  singura cota cu `etr. %%C8/15`
+- armatura `3%%C14` sus si jos, ciocuri pe inaltimea carcasei (10 cm la placa de 15)
+- la sectiuni (`SectiuniGrinzi`): conturul e un dreptunghi, fara placa; etrierul are sus si jos acoperirea placii
+  (1.5 cm), deci etrierul desfasurat e latimea - 5 cm x inaltimea - 3 cm (25x15 -> 20x12, L=0.84m); o singura
+  eticheta pentru toate barele (`3+3%%C14`)
 
 ## Detaliile centurilor (la generare)
 

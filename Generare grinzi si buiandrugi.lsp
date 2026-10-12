@@ -6,7 +6,8 @@
 ;; Comanda: GenerareGrinziBuiandrugi
 ;;
 ;; Ce se citeste din selectie (restul e ignorat):
-;;   - "Markers": numele elementelor, ex "G1 30x40" (grinda), "B2 30x55"
+;;   - "Markers": numele elementelor, ex "G1 30x40" (grinda), "GP5 25x15"
+;;     (grinda in placa, inalta cat placa, dupa grinzile G), "B2 30x55"
 ;;     (buiandrug), "C1 30x25" (centura - doar ca reazem); latime x
 ;;     inaltime in cm. "BP ..." (buiandrugi porotherm) se ignora.
 ;;   - "Grinzi": liniile grinzilor si buiandrugilor; "Centuri": ale
@@ -74,6 +75,13 @@
 (setq gb:*arm-b*    "3%%C12")  ; armatura buiandrugilor, jos
 (setq gb:*cioc-g*   250.0)     ; ciocurile barelor la grinzi (mm)
 (setq gb:*cioc-b*   300.0)     ; ciocurile barelor la buiandrugi (mm)
+;; grinzi in placa (GP): inalte cat placa, 3%%C14 sus si jos, etrieri la 15 cm
+;; pe toata lungimea; reazemele (centuri, grinzi, stalpi) figurate cu un
+;; dreptunghi hasurat de 10 cm sub ea; barele cu ciocuri pe inaltimea carcasei
+(setq gb:*arm-gp*   "3%%C14")
+(setq gb:*h-rez-gp* 100.0)     ; inaltimea desenata a reazemelor (mm)
+(setq gb:*y-gp-sus* 930.0)     ; bara de sus sub fata de jos (mm)
+(setq gb:*y-gp-jos* 1370.0)    ; bara de jos sub fata de jos (mm)
 ;; randurile barelor de grinda sub fata de jos: sus la 1085 (ciocuri in jos),
 ;; jos cu 9 cm intre ciocuri (1085 + 250 + 90 + 250), al doilea rand de jos
 ;; (sectiune variabila) inca 330 mai jos
@@ -170,7 +178,9 @@
   (setq s (vl-string-trim " \t" s))
   (while (vl-string-search "  " s) (setq s (vl-string-subst " " "  " s)))
   (setq tip (strcase (substr s 1 1)) i 2 num "" b "" h "" n (strlen s))
-  (if (member tip '("G" "B" "C"))
+  ;; GP = grinda in placa
+  (if (= (strcase (substr s 1 2)) "GP") (setq tip "GP" i 3))
+  (if (member tip '("G" "GP" "B" "C"))
     (progn
       (while (and (<= i n) (wcmatch (setq c (substr s i 1)) "#")) (setq num (strcat num c) i (1+ i)))
       (if (and (/= num "") (<= i n) (= (substr s i 1) " "))
@@ -390,7 +400,7 @@
       (setq r (list "S" (car k) (caddr k) nil))))
   (if (null r)
     (foreach o gb:*el*
-      (if (and (null r) (/= (gb:g 'dir o) dr)
+      (if (and (null r) (/= (gb:g 'dir o) dr) (/= (gb:g 'tip o) "GP")
                (<= (gb:g 'va o) (+ u gb:*tol*)) (>= (gb:g 'vb o) (- u gb:*tol*))
                (<= (gb:g 'lo o) (+ (gb:g 'va e) gb:*tol*)) (>= (gb:g 'hi o) (- (gb:g 'vb e) gb:*tol*)))
         (setq r (list "G" (gb:g 'va o) (gb:g 'vb o) (gb:g 'h o))))))
@@ -426,6 +436,44 @@
       (setq mij (cons (list "S" (car k) (caddr k) nil) mij))))
   (setq mij (gb:sort mij '(lambda (a b) (< (cadr a) (cadr b)))))
   (gb:pune 'sups (append (list s0) mij (list s1)) (gb:pune 'ua ua (gb:pune 'ub ub e)))
+)
+
+;; grinda in placa (GP): reazemele sunt centurile (fasiile de pe Centuri),
+;; grinzile (G..) si stalpii pe care ii traverseaza sau in care se termina,
+;; toate ca ("P" a b nil); capetele fara reazem se semnaleaza
+(defun gb:reazeme-gp (e / dr lo hi va vb r k s0 s1 ua ub vm)
+  (setq dr (gb:g 'dir e) lo (gb:g 'lo e) hi (gb:g 'hi e) va (gb:g 'va e) vb (gb:g 'vb e)
+        vm (/ (+ va vb) 2.0))
+  ;; centurile perpendiculare care cuprind toata latimea grinzii
+  (foreach f (gb:fasii-centuri)
+    (if (and (/= (car f) dr)
+             (>= (gb:suprap (nth 3 f) (nth 4 f) va vb) (- vb va gb:*tol*))
+             (>= (gb:suprap (cadr f) (caddr f) lo hi) (- gb:*tol*)))
+      (setq r (cons (list (cadr f) (caddr f)) r))))
+  ;; grinzile perpendiculare
+  (foreach o gb:*el*
+    (if (and (= (gb:g 'tip o) "G") (/= (gb:g 'dir o) dr)
+             (>= (gb:suprap (gb:g 'lo o) (gb:g 'hi o) va vb) (- vb va gb:*tol*))
+             (>= (gb:suprap (gb:g 'va o) (gb:g 'vb o) lo hi) (- gb:*tol*)))
+      (setq r (cons (list (gb:g 'va o) (gb:g 'vb o)) r))))
+  ;; stalpii
+  (foreach c gb:*col*
+    (setq k (gb:cbox dr c))
+    (if (and (> (gb:suprap (cadr k) (cadddr k) va vb) gb:*tol*)
+             (>= (gb:suprap (car k) (caddr k) lo hi) (- gb:*tol*)))
+      (setq r (cons (list (car k) (caddr k)) r))))
+  (setq r (mapcar '(lambda (x) (list "P" (car x) (cadr x) nil)) (gb:uneste r)))
+  (setq s0 (car r) s1 (last r))
+  (if (or (null s0) (> (cadr s0) (+ lo gb:*tol*)))
+    (progn
+      (gb:err (gb:uv dr lo vm) (strcat (gb:g 'name e) ": capatul " (if (= dr 0) "stang" "de jos") " nu reazema pe centura, grinda sau stalp"))
+      (setq r (cons (list "N" lo lo nil) r))))
+  (if (or (null s1) (< (caddr s1) (- hi gb:*tol*)))
+    (progn
+      (gb:err (gb:uv dr hi vm) (strcat (gb:g 'name e) ": capatul " (if (= dr 0) "drept" "de sus") " nu reazema pe centura, grinda sau stalp"))
+      (setq r (append r (list (list "N" hi hi nil))))))
+  (setq ua (min lo (cadr (car r))) ub (max hi (caddr (last r))))
+  (gb:pune 'sups r (gb:pune 'ua ua (gb:pune 'ub ub e)))
 )
 
 ;; =========================================================================
@@ -528,6 +576,22 @@
   (list (gb:unic-num poz) zone (reverse desc))
 )
 
+;; grinzi in placa: pas 15 de la un capat la altul, peste reazeme; restul
+;; impartirii se imparte egal la capete (primul la ~15 cm de capatul
+;; carcasei). Deschiderile (pentru sectiune) sunt intre reazeme.
+(defun gb:etr-gp (sups ua ub / a b k off poz i desc s0)
+  (setq a (+ ua gb:*acop*) b (- ub gb:*acop*)
+        k (fix (+ (/ (- b a) gb:*pas-mij*) 1e-6))
+        off (/ (- (- b a) (* k gb:*pas-mij*)) 2.0) i 1)
+  (repeat (max 0 (1- k))
+    (setq poz (cons (+ a off (* i gb:*pas-mij*)) poz) i (1+ i)))
+  (setq s0 (car sups))
+  (foreach s1 (cdr sups)
+    (if (> (cadr s1) (+ (caddr s0) gb:*tol*)) (setq desc (cons (list (caddr s0) (cadr s1)) desc)))
+    (setq s0 s1))
+  (list (reverse poz) (list (list ua ub 15)) (reverse desc))
+)
+
 ;; buiandrugi: pas 15 peste tot in afara de stalpi / grinzi
 (defun gb:etr-buiandrug (sups ua ub / poz zone desc blocuri cur a b x ultim)
   (setq blocuri (vl-remove-if-not '(lambda (s) (member (car s) '("S" "G"))) sups) cur ua)
@@ -556,7 +620,7 @@
     (setq c (cadr a))
     (if (and (/= (car a) dr)
              (<= (- (caddr a) gb:*tol*) vm (+ (cadddr a) gb:*tol*))
-             (vl-some '(lambda (s) (and (member (car s) '("S" "G")) (<= (- (cadr s) gb:*tol*) c (+ (caddr s) gb:*tol*))))
+             (vl-some '(lambda (s) (and (member (car s) '("S" "G" "P")) (<= (- (cadr s) gb:*tol*) c (+ (caddr s) gb:*tol*))))
                       (gb:g 'sups e))
              (not (vl-some '(lambda (x) (equal (car x) c gb:*tol*)) r)))
       (setq r (cons (list c (gb:eticheta-axa a)) r))))
@@ -710,7 +774,7 @@
   (setq secs (gb:g 'secs e) p (gb:g 'p e))
   (cond
     ((null secs)
-     (if (= (gb:g 'tip e) "G")
+     (if (member (gb:g 'tip e) '("G" "GP"))
        (gb:err p (strcat (gb:g 'name e) ": nu am gasit grupul de cofraj (sectiunea) pe plan"))))
     (T
      (foreach s secs
@@ -737,6 +801,22 @@
              (gb:err p (strcat (gb:g 'name e) ": grupul de cofraj are cota de sus " (gb:fmt-cota t1)
                                ", diferita de " (gb:fmt-cota top)))))
          (gb:err p (strcat (gb:g 'name e) ": grupul de cofraj nu are cotele de nivel (textul liber si textul cu field)"))))))
+)
+
+;; grinzile in placa: inalte cat placa; numarul dupa al grinzilor G
+(defun gb:verifica-gp (el / gmax)
+  (foreach e el
+    (if (and (= (gb:g 'tip e) "G") (or (null gmax) (> (gb:g 'num e) gmax))) (setq gmax (gb:g 'num e))))
+  (foreach e el
+    (if (= (gb:g 'tip e) "GP")
+      (progn
+        (if (and gb:*t-placa* (not (equal (gb:g 'h e) gb:*t-placa* gb:*tol*)))
+          (gb:err (gb:g 'p e) (strcat (gb:g 'name e) ": grinda in placa are " (gb:cm (gb:g 'h e))
+                                      " cm, placa are " (gb:cm gb:*t-placa*) " cm - numele trebuie sa fie "
+                                      (gb:g 'id e) " " (gb:cm (gb:g 'b e)) "x" (gb:cm gb:*t-placa*))))
+        (if (and gmax (<= (gb:g 'num e) gmax))
+          (gb:err (gb:g 'p e) (strcat (gb:g 'name e) ": grinzile in placa se numeroteaza dupa grinzi (ultima e G"
+                                      (itoa gmax) ") - de exemplu GP" (itoa (1+ gmax))))))))
 )
 
 ;; =========================================================================
@@ -1081,14 +1161,18 @@
   (if r r xs)
 )
 
-(defun gb:deseneaza (doc ms e n top ox oy / ua ub lt h yb yj x et zones desc pct pt2 a b xm s xs xss txs titlu cu hc tr k j x1 x2 ce pc)
-  (setq ua (gb:g 'ua e) ub (gb:g 'ub e) lt (- ub ua) h (gb:g 'h e) yb (- oy h) tr (gb:g 'tr e))
+(defun gb:deseneaza (doc ms e n top ox oy / ua ub lt h yb yj x et zones desc pct pt2 a b xm s xs xss txs titlu cu hc tr k j x1 x2 ce pc
+                       gp hr cj)
+  (setq ua (gb:g 'ua e) ub (gb:g 'ub e) lt (- ub ua) h (gb:g 'h e) yb (- oy h) tr (gb:g 'tr e)
+        gp (= (gb:g 'tip e) "GP")
+        ;; reazemele desenate (inaltime) si lantul de cote de jos sub ele
+        hr (if gp gb:*h-rez-gp* gb:*h-reazem*) cj (if gp 376.5 250.0))
   (defun gb:x (u) (+ ox (- u ua)))
   (defun gb:yjos (u) (- oy (gb:h-la e u)))
   ;; elementul si carcasa (cu trepte la sectiune variabila)
   ;; conturul poarta datele pentru SectiuniGrinzi (ascunse, XDATA)
   (setq ce (gb:centura-el e) hc (if ce (gb:g 'h ce) 250.0)
-        pc (cond ((gb:placa e)) ((and (= (gb:g 'tip e) "B") ce) (gb:placa ce)) ((and (/= (gb:g 'tip e) "B") gb:*t-placa*) (list gb:*t-placa* T T))))
+        pc (cond (gp nil) ((gb:placa e)) ((and (= (gb:g 'tip e) "B") ce) (gb:placa ce)) ((and (/= (gb:g 'tip e) "B") gb:*t-placa*) (list gb:*t-placa* T T))))
   (entmakex (append (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") (cons 8 gb:*l-elem*) '(100 . "AcDbPolyline")
                           (cons 90 (length (gb:contur tr ua lt 0.0))) '(70 . 1))
                     (mapcar '(lambda (p) (list 10 (+ ox (car p)) (+ oy (cadr p)))) (gb:contur tr ua lt 0.0))
@@ -1107,11 +1191,15 @@
       ((= (car s) "Z") (gb:simbol-reazem doc ms (gb:x (cadr s)) (gb:x (caddr s)) (gb:yjos (/ (+ (cadr s) (caddr s)) 2.0)) "AR-B88" 0.8))
       ((= (car s) "G")
        (setq a (gb:o (gb:dreptunghi gb:*l-elem* (gb:x (cadr s)) oy (gb:x (caddr s)) (- oy (cadddr s)))))
+       (gb:grup doc (list a (gb:hasura ms a "ANSI31" 35.0 gb:*l-elem*))))
+      ;; grinda in placa: centura / grinda / stalpul de sub ea, 10 cm hasurat
+      ((= (car s) "P")
+       (setq a (gb:o (gb:dreptunghi gb:*l-elem* (gb:x (cadr s)) yb (gb:x (caddr s)) (- yb hr))))
        (gb:grup doc (list a (gb:hasura ms a "ANSI31" 35.0 gb:*l-elem*))))))
   ;; etrierii
-  (setq et (if (= (gb:g 'tip e) "G")
-             (gb:etr-grinda (gb:g 'sups e))
-             (gb:etr-buiandrug (gb:g 'sups e) ua ub))
+  (setq et (cond ((= (gb:g 'tip e) "G") (gb:etr-grinda (gb:g 'sups e)))
+                 (gp (gb:etr-gp (gb:g 'sups e) ua ub))
+                 (T (gb:etr-buiandrug (gb:g 'sups e) ua ub)))
         zones (cadr et) desc (caddr et))
   (foreach u (car et)
     (gb:linie gb:*l-etr* (list (gb:x u) (- oy gb:*acop*)) (list (gb:x u) (+ (gb:yjos u) gb:*acop*))))
@@ -1148,8 +1236,8 @@
   (setq pt2 (vl-remove-if '(lambda (u) (or (< u (- ua gb:*tol*)) (> u (+ ub gb:*tol*)))) (gb:unic-num pt2)))
   (setq a (car pt2))
   (foreach b (cdr pt2)
-    (gb:cota ms (list (gb:x a) (- yb gb:*h-reazem*)) (list (gb:x b) (- yb gb:*h-reazem*))
-             (list (gb:x a) (- yb gb:*h-reazem* 250.0)) 0.0)
+    (gb:cota ms (list (gb:x a) (- yb hr)) (list (gb:x b) (- yb hr))
+             (list (gb:x a) (- yb hr cj)) 0.0)
     (setq a b))
   ;; axele
   (foreach ax (gb:g 'axes e)
@@ -1197,7 +1285,12 @@
   ;; 25 mm mai scurta la fiecare capat; marca "y" se renumeroteaza
   ;; centrul cercului marcii: eticheta (cerc, diametru, L=) centrata pe bara
   (setq cu (+ ox (/ lt 2.0) -200.0))
-  (if (= (gb:g 'tip e) "G")
+  (cond
+   ;; grinda in placa: 3%%C14 sus si jos, ciocuri pe inaltimea carcasei
+   (gp
+    (gb:armatura doc ms (+ ox gb:*acop*) (+ ox lt (- gb:*acop*)) (- yb gb:*y-gp-sus*) (- (+ h (* -2.0 gb:*acop*))) gb:*arm-gp* cu)
+    (gb:armatura doc ms (+ ox gb:*acop*) (+ ox lt (- gb:*acop*)) (- yb gb:*y-gp-jos*) (- h (* 2.0 gb:*acop*)) gb:*arm-gp* cu))
+   ((= (gb:g 'tip e) "G")
     (progn
       ;; sus: continua
       (gb:armatura doc ms (+ ox gb:*acop*) (+ ox lt (- gb:*acop*)) (- yb 1085.0) (- gb:*cioc-g*) gb:*arm-g* cu)
@@ -1216,8 +1309,8 @@
                   j (- (length tr) 1 k))
             (gb:armatura doc ms x1 x2 (- yb (if (= (rem j 2) 0) gb:*y-jos-1* gb:*y-jos-2*)) gb:*cioc-g* gb:*arm-g*
                          (+ (/ (+ x1 x2) 2.0) -200.0))
-            (setq k (1+ k))))))
-    (progn
+            (setq k (1+ k)))))))
+   (T
       ;; fierul de jos al centurii: la (inaltimea centurii - 2 x 25 mm) sub
       ;; fierul de sus al carcasei
       (setq hc (gb:h-centura e))
@@ -1241,11 +1334,11 @@
   ;;    barelor lungi de dedesubt
   (gb:dreptunghi gb:*l-chenar-e* (+ ox 5.0) (+ oy 260.0) (+ ox lt -5.0) (- yb 330.0))
   (gb:dreptunghi gb:*l-chenar-a* (- ox 100.0) (+ oy 1150.0) (+ ox lt 100.0)
-                 (- yb (cond ((/= (gb:g 'tip e) "G") 1210.0) ((> (length tr) 1) gb:*y-jos-2*) (T gb:*y-jos-1*)) 450.0))
+                 (- yb (cond (gp gb:*y-gp-jos*) ((/= (gb:g 'tip e) "G") 1210.0) ((> (length tr) 1) gb:*y-jos-2*) (T gb:*y-jos-1*)) 450.0))
   ;; titlul
   (setq xm (+ ox (/ lt 2.0)) titlu (strcat (gb:g 'name e) " " (itoa n) "buc."))
-  (gb:text gb:*l-bucati* (list xm (+ oy 1000.0)) 140.0 titlu gb:*st-titlu* "MC" (if (= (gb:g 'tip e) "G") 6 3))
-  (gb:text gb:*l-bucati* (list xm (+ oy 830.0)) 110.0 "Scara 1:50" gb:*st-titlu* "MC" (if (= (gb:g 'tip e) "G") 6 3))
+  (gb:text gb:*l-bucati* (list xm (+ oy 1000.0)) 140.0 titlu gb:*st-titlu* "MC" (if (= (gb:g 'tip e) "B") 3 6))
+  (gb:text gb:*l-bucati* (list xm (+ oy 830.0)) 110.0 "Scara 1:50" gb:*st-titlu* "MC" (if (= (gb:g 'tip e) "B") 3 6))
   lt
 )
 
@@ -1327,12 +1420,14 @@
       (foreach e gb:*el*
         (if (/= (gb:g 'tip e) "C")
           (progn
-            (setq e (gb:tronsoane (gb:reazeme e)))
+            (setq e (gb:tronsoane (if (= (gb:g 'tip e) "GP") (gb:reazeme-gp e) (gb:reazeme e))))
             (setq el (cons (gb:pune 'axes (gb:axe-element e) e) el)))))
+      ;; intai grinzile, apoi grinzile in placa, apoi buiandrugii
       (setq el (gb:sort (reverse el)
                         '(lambda (a b) (if (= (gb:g 'tip a) (gb:g 'tip b))
                                          (< (gb:g 'num a) (gb:g 'num b))
-                                         (= (gb:g 'tip a) "G")))))
+                                         (< (vl-position (gb:g 'tip a) '("G" "GP" "B"))
+                                            (vl-position (gb:g 'tip b) '("G" "GP" "B")))))))
       (if (null el)
         (alert "Nu am gasit nicio grinda (G..) sau buiandrug (B..) in selectie.")
         (progn
@@ -1362,6 +1457,7 @@
               (gb:verifica-cofraj
                 (gb:pune 'tr (list (list (gb:g 'lo e) (gb:g 'hi e) (gb:g 'h e))) e) top)))
           (gb:verifica-buiandrugi el top)
+          (gb:verifica-gp el)
           ;; elementele identice o singura data, cu numarul de bucati
           (foreach e el
             (setq sem (gb:semnatura e))
@@ -1432,6 +1528,8 @@
 ;; =========================================================================
 (setq gb:*sc*        2.5)      ; 1:20 fata de 1:50
 (setq gb:*s-acop*    62.5)     ; acoperirea (25 mm) la scara sectiunii
+(setq gb:*s-acop-gp* 37.5)     ; grinzi in placa: acoperirea sus si jos (15 mm, ca la placa)
+(setq gb:*s-cv*      nil)      ; acoperirea sus/jos a sectiunii curente (nil = gb:*s-acop*)
 (setq gb:*s-bara*    35.0)     ; distanta etrier - marginea barei, la scara sectiunii
 (setq gb:*r-bara*    25.0)     ; raza cercului unei bare in sectiune (diametru 50), aceeasi la orice diametru
 (setq gb:*s-placa*   242.9)    ; cat iese placa in afara inimii, in sectiune
@@ -1534,9 +1632,9 @@
 
 ;; etrierul in sectiune (FIER), de la fata de sus pana la hs; cu ciocurile
 ;; la 45 de grade in coltul din dreapta sus, daca e cazul
-(defun gb:s-etrier (x0 y0 W hs ciocuri / c xr yt)
-  (setq c gb:*s-acop* xr (- (+ x0 W) c) yt (- y0 c))
-  (gb:dreptunghi gb:*l-fier* (+ x0 c) yt xr (+ (- y0 hs) c))
+(defun gb:s-etrier (x0 y0 W hs ciocuri / c cv xr yt)
+  (setq c gb:*s-acop* cv (cond (gb:*s-cv*) (c)) xr (- (+ x0 W) c) yt (- y0 cv))
+  (gb:dreptunghi gb:*l-fier* (+ x0 c) yt xr (+ (- y0 hs) cv))
   (if ciocuri
     (progn
       (gb:linie gb:*l-fier* (list (- xr 56.3) yt) (list (- xr 122.7) (- yt 66.4)))
@@ -1698,6 +1796,7 @@
 ;; Intoarce (xstanga xdreapta ybaza) ale desenului.
 ;; -------------------------------------------------------------------------
 (defun gb:sectiune (doc ms x0 y0 s / W H pl ext xl xr ys yb sus jos tp sl sr hc yc xsus xjos cent)
+  (setq gb:*s-cv* nil)
   (setq W (* gb:*sc* (gb:g 'b s)) H (* gb:*sc* (gb:g 'h s)) pl (gb:g 'placa s)
         tp (if pl (* gb:*sc* (car pl))) sl (if pl (cadr pl)) sr (if pl (caddr pl)))
   (setq ext (gb:s-contur x0 y0 W H tp sl sr (and pl (nth 3 pl))) xl (car ext) xr (cadr ext))
@@ -1727,23 +1826,33 @@
      (gb:s-indicator doc (- (+ x0 gb:*s-acop*) 423.4) (+ (/ (+ (- y0 hc) (- y0 H)) 2.0) gb:*s-acop*)
                      (+ x0 gb:*s-acop*) 149.3 (gb:g 'tag-e s)))
     (T
+     ;; grinda in placa: acoperirea de sus si de jos e a placii (15 mm)
+     (setq gb:*s-cv* (if (= (gb:g 'tip s) "GP") gb:*s-acop-gp*))
      (gb:s-etrier x0 y0 W H T)
      (if sus
        (progn
-         (setq ys (- y0 gb:*s-acop* gb:*s-bara* gb:*r-bara*))
+         (setq ys (- y0 (cond (gb:*s-cv*) (gb:*s-acop*)) gb:*s-bara* gb:*r-bara*))
          (setq xsus (gb:s-bare x0 W ys (car sus) (cadr sus)))
          (gb:s-eticheta xsus ys (+ y0 221.6) (- x0 497.8) (- x0 245.4)
-                        (strcat (itoa (+ (car sus) (if (= (gb:g 'tip s) "C") (car jos) 0))) "%%C" (itoa (cadr sus)))
+                        (cond
+                          ((= (gb:g 'tip s) "C") (strcat (itoa (+ (car sus) (car jos))) "%%C" (itoa (cadr sus))))
+                          ;; grinda in placa: o eticheta pentru toate, "3+3%%C14"
+                          ((and (= (gb:g 'tip s) "GP") jos (= (cadr sus) (cadr jos)))
+                           (strcat (itoa (car sus)) "+" (itoa (car jos)) "%%C" (itoa (cadr sus))))
+                          ((and (= (gb:g 'tip s) "GP") jos)
+                           (strcat (itoa (car sus)) "%%C" (itoa (cadr sus)) "+" (itoa (car jos)) "%%C" (itoa (cadr jos))))
+                          (T (strcat (itoa (car sus)) "%%C" (itoa (cadr sus)))))
                         gb:*l-elem* nil)))
      (if jos
        (progn
-         (setq yb (+ (- y0 H) gb:*s-acop* gb:*s-bara* gb:*r-bara*))
+         (setq yb (+ (- y0 H) (cond (gb:*s-cv*) (gb:*s-acop*)) gb:*s-bara* gb:*r-bara*))
          (setq xjos (gb:s-bare x0 W yb (car jos) (cadr jos)))
-         (if (/= (gb:g 'tip s) "C")
+         (if (not (or (= (gb:g 'tip s) "C") (and (= (gb:g 'tip s) "GP") sus)))
            (gb:s-eticheta xjos yb (- y0 H 544.1) (- x0 513.9) (- x0 239.4)
                           (strcat (itoa (car jos)) "%%C" (itoa (cadr jos))) gb:*l-diam* nil)
-           ;; la centuri, eticheta de sus le cuprinde pe toate
+           ;; la centuri si la grinzile in placa, eticheta de sus le cuprinde pe toate
            (foreach x xjos (gb:linie gb:*l-elem* (list x yb) (list x ys))))))
+     (setq gb:*s-cv* nil)
      (if (= (gb:g 'tip s) "C")
        (gb:s-indicator doc (- x0 497.8 149.3) (+ y0 221.6) (- x0 497.8) 149.3 (gb:g 'tag-b s)))
      ;; la grinda intoarsa marca urca deasupra placii, ca sa nu stea peste ea
@@ -2001,7 +2110,7 @@
                                 (cons 'nume (gb:d "nume" data)) (cons 'top (atof (gb:d "top" data))))))
         (if (not (gb:g 'jos s))
           (gb:err (list x (nth 4 c)) (strcat "Sectiunea " (car q) " (" (gb:d "nume" data) "): nu am gasit barele de jos sub element")))
-        (if (and (= (gb:d "tip" data) "G") (not (gb:g 'sus s)))
+        (if (and (member (gb:d "tip" data) '("G" "GP")) (not (gb:g 'sus s)))
           (gb:err (list x (nth 4 c)) (strcat "Sectiunea " (car q) " (" (gb:d "nume" data) "): nu am gasit barele de sus sub element")))
         (setq key (list (car c) (fix (+ h 0.5))))
         ;; acelasi numar pe mai multe elemente: sectiunea se deseneaza o data
@@ -2081,7 +2190,9 @@
     (setq x0 (+ xe 1100.0)))
   ;; etrierul desfasurat (definitia), sub prima sectiune
   (setq s (cdr (car lst))
-        Ws (* gb:*sc* (- (gb:g 'b s) 50.0)) Hs (* gb:*sc* (- (gb:g 'h s) 50.0))
+        Ws (* gb:*sc* (- (gb:g 'b s) 50.0))
+        ;; grinda in placa: acoperirea sus si jos e a placii (1.5 cm) -> h - 3 cm
+        Hs (* gb:*sc* (- (gb:g 'h s) (if (= (gb:g 'tip s) "GP") 30.0 50.0)))
         X x0p Yt (- ybot 888.0))
   (if (= (gb:g 'tip s) "B")
     (gb:etrier-u doc ms X (- Yt Hs) Ws Hs (gb:g 'etr s) nil)
