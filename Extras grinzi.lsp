@@ -806,7 +806,7 @@
                                   row_t1 row_t2 row_h1 row_h2 row_h3
                                   row_ds row_de row_sum row_wt row_wtt row_tot
                                   m d l b addr col_letter j m_ob m_bst
-                                  ob37_end bst_start pt old_osmode old_cmdecho old_clayer olderr new_ole
+                                  ob37_end bst_start pt old_osmode old_cmdecho old_clayer olderr new_ole e_ole
                                   num_rows num_cols table_ent diam_totale existing suma kg_m kg_rotunjit
                                   suma_ob suma_bst l_val l_tot col_idx )
 
@@ -1170,6 +1170,13 @@
           (setq last_inainte (entlast))
           (command "_.PASTECLIP" "_non" pt)
           (setq new_ole (entlast))
+          ;; doar tabelul lipit (OLE2FRAME): daca intre timp s-a facut alt obiect
+          ;; (ex. un acoperis GENACOPERIS isi reface hasurile la sfarsitul
+          ;; comenzii), nu se scaleaza el de 50 de ori
+          (setq new_ole nil e_ole (if last_inainte (entnext last_inainte) (entnext)))
+          (while e_ole
+            (if (= (cdr (assoc 0 (entget e_ole))) "OLE2FRAME") (setq new_ole e_ole))
+            (setq e_ole (entnext e_ole)))
           ;; daca lipirea n-a mers, nu se scaleaza alt obiect din desen
           (if (or (null pt) (eq new_ole last_inainte)) (setq new_ole nil))
           (if new_ole (command "_.SCALE" new_ole "" "_non" pt 50))
