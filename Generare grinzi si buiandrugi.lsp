@@ -191,7 +191,9 @@
             (progn
               (setq i (1+ i))
               (while (and (<= i n) (wcmatch (setq c (substr s i 1)) "#")) (setq h (strcat h c) i (1+ i)))
-              (if (and (/= h "") (> i n))
+              ;; dupa dimensiuni poate urma, dupa un spatiu, un text pentru
+              ;; santier, ex "G5 30x40 (intoarsa)" - ramane in nume si in titlu
+              (if (and (/= h "") (or (> i n) (= (substr s i 1) " ")))
                 (list tip (atoi num) (* 10.0 (atoi b)) (* 10.0 (atoi h)) s)))))))
   )
 )
@@ -1093,28 +1095,30 @@
   n
 )
 
-;; cat intra barele centurii dincolo de capatul u al fasiei: peste stalpul
-;; sau zidul perpendicular de acolo, pana la 25 mm de fata lui
-(defun gb:ext-capat (f u fasii / dr va vb r k)
-  (setq dr (car f) va (cadr f) vb (caddr f) r 0.0)
-  (foreach c gb:*col*
-    (setq k (gb:cbox dr c))
-    (if (and (> (gb:suprap (cadr k) (cadddr k) va vb) gb:*tol*)
-             (or (equal (car k) u gb:*tol*) (equal (caddr k) u gb:*tol*)))
-      (setq r (max r (- (caddr k) (car k) 25.0)))))
-  (foreach g fasii
-    (if (and (/= (car g) dr)
-             (or (equal (cadr g) u gb:*tol*) (equal (caddr g) u gb:*tol*))
-             (>= (gb:suprap (nth 3 g) (nth 4 g) va vb) (- gb:*tol*)))
-      (setq r (max r (- (caddr g) (cadr g) 25.0)))))
-  r
+;; lungimea centurilor pentru barele lor: la fiecare fasie, linia mai lunga
+;; dintre cele doua - la zidurile exterioare conturul exterior al casei, la
+;; cele interioare una din cele doua linii; fiecare bucata de linie o data
+(defun gb:lungime-centuri (fasii / ps luate best L iv k)
+  (foreach f fasii
+    (setq ps (gb:paralele gb:*l-centuri* (car f)) best nil)
+    (foreach v (list (cadr f) (caddr f))
+      (setq iv (vl-remove-if-not '(lambda (x) (> (gb:suprap (car x) (cadr x) (nth 3 f) (nth 4 f)) gb:*tol*))
+                 (gb:uneste (mapcar 'cdr (vl-remove-if-not '(lambda (s) (equal (car s) v gb:*tol*)) ps))))
+            L (apply '+ (cons 0.0 (mapcar '(lambda (x) (- (cadr x) (car x))) iv))))
+      (if (or (null best) (> L (car best))) (setq best (list L v iv))))
+    (foreach x (caddr best)
+      (setq k (list (car f) (cadr best) (car x) (cadr x)))
+      (if (not (vl-some '(lambda (o) (and (= (car o) (car k)) (equal (cdr o) (cdr k) gb:*tol*))) luate))
+        (setq luate (cons k luate)))))
+  (apply '+ (cons 0.0 (mapcar '(lambda (o) (- (nth 3 o) (nth 2 o))) luate)))
 )
 
 ;; numararea: ((tag . etrieri) ...) pe tipuri de centura ("C300x250") si
-;; o estimare a barelor de 12 m (cu innadiri de 50 de diametre), doar in
-;; rezumatul din linia de comanda (barele raman "xxx buc." in desen)
-(defun gb:centuri-calcul (arm / fasii f m tag r n lt nb lap buc lv)
-  (setq fasii (gb:fasii-centuri) lt 0.0)
+;; barele de 12 m: lungimea centurilor (gb:lungime-centuri) x numarul de
+;; bare / 12 m, rotunjit in sus, apoi x 1.25 pentru petreceri si coltare,
+;; rotunjit (ex. 62 m x 4 = 248 m / 12 = 20.67 -> 21 x 1.25 = 26.25 -> 26)
+(defun gb:centuri-calcul (arm / fasii f m tag r n lt nb n12 buc lv)
+  (setq fasii (gb:fasii-centuri) lt (gb:lungime-centuri fasii))
   (foreach f fasii
     (if (setq m (gb:tip-fasie f))
       (progn
@@ -1122,19 +1126,18 @@
               n (gb:etr-fasie f (gb:blocuri-fasie f)))
         (if (setq r (assoc tag lv))
           (setq lv (subst (list tag (+ (cadr r) n) (caddr r)) r lv))
-          (setq lv (append lv (list (list tag n (gb:g 'name m))))))
-        (setq lt (+ lt (- (nth 4 f) (nth 3 f)) (gb:ext-capat f (nth 3 f) fasii) (gb:ext-capat f (nth 4 f) fasii))))
+          (setq lv (append lv (list (list tag n (gb:g 'name m)))))))
       (gb:err (gb:uv (car f) (* 0.5 (+ (nth 3 f) (nth 4 f))) (* 0.5 (+ (cadr f) (caddr f))))
               (strcat "Centura lata de " (gb:cm (- (caddr f) (cadr f))) " cm fara nume (C..) - nu am numarat-o"))))
-  (setq nb (if arm (car arm) 4) lap (* 50.0 (if arm (cadr arm) 12))
-        buc (if (> lt 0.0) (fix (+ (/ (* nb lt) (- 12000.0 lap)) 0.999999)) 0))
+  (setq nb (if arm (car arm) 4)
+        n12 (if (> lt 0.0) (fix (+ (/ (* nb lt) 12000.0) 0.999999)) 0)
+        buc (fix (+ (* n12 1.25) 0.5)))
   (princ "\nCenturi (din plan):")
   (foreach r lv
     (princ (strcat "\n  " (caddr r) ": " (itoa (cadr r)) " etrieri")))
   (princ (strcat "\n  bare " gb:*arm-c* ": " (gb:rtos (/ lt 1000.0) 2) " m de centura x " (itoa nb)
-                 " = " (gb:rtos (/ (* nb lt) 1000.0) 1) " m -> ~" (itoa buc) " bare de 12 m (innadiri de "
-                 (gb:rtos (/ lap 10.0) 0) " cm), fara barele L / T si fara grinzile scurte in continuarea centurii"
-                 " - doar orientativ; bucatile barelor se completeaza manual (xxx buc.)"))
+                 " = " (gb:rtos (/ (* nb lt) 1000.0) 2) " m / 12 = " (gb:rtos (/ (* nb lt) 12000.0) 2)
+                 " -> " (itoa n12) " bare x 1.25 (petreceri, coltare) = " (itoa buc) " bare de 12 m - verificati"))
   (list (mapcar '(lambda (r) (cons (car r) (cadr r))) lv) buc)
 )
 
@@ -1503,7 +1506,8 @@
                                 500.0)))
                   ;; barele drepte sub detalii, aliniate cu primul, in chenarul
                   ;; lor pentru armatura (renumerotarea le cauta acolo)
-                  (gb:bare-centura doc ms (+ r 1300.0 -232.1) (- gb:*y-det* 417.5) (gb:n-diam gb:*arm-c*) "xxx buc.")))
+                  (gb:bare-centura doc ms (+ r 1300.0 -232.1) (- gb:*y-det* 417.5) (gb:n-diam gb:*arm-c*)
+                                  (if (> (cadr cc) 0) (strcat (itoa (cadr cc)) " buc.") "xxx buc."))))
               (setq gb:*err* (reverse gb:*err*))
               (gb:marcheaza-erori gb:*err*)
               (gb:stil-cota doc ds0)

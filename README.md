@@ -29,7 +29,8 @@ Toata generarea se anuleaza cu un singur `U`.
 
 ## Ce citeste din plan
 
-- **Markers**: numele elementelor: `G1 30x40` = grinda, `GP5 25x15` = grinda in placa, `B2 30x55` = buiandrug (latime x inaltime, in cm).
+- **Markers**: numele elementelor: `G1 30x40` = grinda, `GP5 25x15` = grinda in placa, `B2 30x55` = buiandrug (latime x inaltime, in cm). Dupa dimensiuni poate urma,
+  dupa un spatiu, un text pentru santier (ex. `G5 30x40 (intoarsa)`): ramane in nume si in titlul desfasuratei.
   `C1 30x25` (centuri) servesc ca reazem si la numararea etrierilor centurilor; `BP ...` (buiandrugi porotherm) se ignora.
 - **Grinzi**: cele doua linii ale fiecarei grinzi / fiecarui buiandrug (linii sau polilinii, ortogonale).
   Elementul e fasia dintre cele doua linii in care sta textul. Liniile se pot opri la fata stalpului
@@ -128,7 +129,7 @@ numarul vine dupa al grinzilor G (G1...G4, apoi GP5). Desfasurata e ca la grinzi
 La sfarsitul randului de desfasurate, cate un detaliu pentru fiecare tip de centura de pe plan (dupa textele C..):
 sectiunea la 1:20 (placa din grupul de cofraj al centurii), 2+2 bare, etrierul in sectiune, cotele de nivel, etrierul
 desfasurat (laturi = centura - 5 cm, `etr %%C8/15`, L= field) cu numarul de bucati pe `Bucati etrieri centuri`, si sub ele
-grupul barelor drepte (`4%%C12`, `L=12.00m`, `xxx buc.` - se completeaza manual), aliniat cu primul detaliu, in `Chenar pentru armatura`. Armatura centurii se intreaba la pornire (`<4%%C12>`).
+grupul barelor drepte (`4%%C12`, `L=12.00m`, bucatile calculate - de verificat), aliniat cu primul detaliu, in `Chenar pentru armatura`. Armatura centurii se intreaba la pornire (`<4%%C12>`).
 Bucatile etrierilor se numara din plan:
 - fasiile centurilor = doua linii paralele de pe `Centuri`, la distanta egala cu latimea unei centuri cu nume, fara
   alta linie intre ele, pe portiunea pe care exista amandoua (colturile si intersectiile raman ale zidului care trece);
@@ -136,9 +137,9 @@ Bucatile etrierilor se numara din plan:
   latime si alta inaltime, se semnaleaza);
 - etrierii: pas 15 cm, fara stalpi si grinzi (G..), de la fata lor; la capetele libere (fata zidului perpendicular)
   primul la 5 cm; ultimul la capat, ca sa nu ramana mai mult de 15 cm. Peste buiandrugi (B.., BP..) se numara;
-- barele (doar estimare in linia de comanda, fara barele L / T de la colturi si intersectii si fara grinzile scurte
-  in continuarea centurii): lungimea fasiilor plus, la fiecare capat, intrarea peste stalpul / zidul de acolo (pana la 2.5 cm de fata
-  lui), inmultita cu numarul de bare, impartita la 12 m minus o innadire de 50 de diametre, rotunjit in sus.
+- barele: lungimea centurilor - la zidurile exterioare conturul exterior al casei, la cele interioare una din
+  cele doua linii - x numarul de bare / 12 m, rotunjit in sus, apoi x 1.25 pentru petreceri si coltare, rotunjit
+  (ex. 62 m x 4 = 248 m / 12 = 20.67 -> 21 x 1.25 = 26.25 -> 26 buc.); se scrie in grupul barelor drepte;
 In linia de comanda apare rezumatul (etrieri pe tipuri, metri de centura, bare). Daca etrierii nu ies, ramane `xxx buc.`.
 Etrierul identic din grinzi (ex. G3 25x25 si C2 25x25) primeste acelasi numar la renumerotare, iar extrasul le aduna.
 
