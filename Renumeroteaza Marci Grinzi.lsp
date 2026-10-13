@@ -1,4 +1,9 @@
 ;; Revizie:
+;;  - ordinea etrierilor: intai etrierii centurilor (definitiile cu "... buc."
+;;    pe "Bucati etrieri centuri"), de la cel mai mare la cel mai mic (ex
+;;    centura de 30, apoi cea de 25), apoi etrierii din sectiunile grinzilor
+;;    si buiandrugilor (1-1, 2-2 ...). Un etrier de grinda identic cu al unei
+;;    centuri primeste numarul centurii.
 ;;  - marcile legate (generate de GenerareGrinziBuiandrugi / SectiuniGrinzi):
 ;;    un text pe "Otel marca" cu legatura ascunsa (XDATA "GBMARCA", ex
 ;;    "C300x250" = etrierul centurii 30x25, "CB4x12" = barele centurii 4%%C12)
@@ -405,7 +410,7 @@
         (setq lung_val (grn-extrage-lungime lung_txt))
         (if (grn-are-pas diam_txt)
           (if are_etr_cuvant
-            (setq definitii_etrier (cons (list marca_ent marca_pt diam_baza lung_val (rmk:forma-etrier (car grp))) definitii_etrier))
+            (setq definitii_etrier (cons (list marca_ent marca_pt diam_baza lung_val (rmk:forma-etrier (car grp)) are_buc_centura) definitii_etrier))
           )
           (setq bare_toate (cons (list marca_ent marca_pt diam_baza lung_val are_buc_centura) bare_toate))
         )
@@ -504,9 +509,10 @@
     (setq raport (cons (strcat old_txt " -> " (itoa nr) " (bara centura, in afara chenarelor)") raport))
     (entmod (subst (cons 1 (itoa nr)) (assoc 1 (entget marca_ent)) (entget marca_ent))))
 
-  ;; --- ETAPA 2: definitii de etrier, dupa sectiune ---
-  ;; ordinea etrierilor dupa sectiune: 1-1, 2-2 ...; cei care nu sunt in
-  ;; niciun Chenar pentru sectiuni etrieri (ex etrierii centurilor) la urma
+  ;; --- ETAPA 2: definitii de etrier ---
+  ;; intai etrierii centurilor, de la cel mai mare (cel mai lung) la cel mai
+  ;; mic; apoi dupa sectiune: 1-1, 2-2 ...; restul (in afara chenarelor de
+  ;; sectiuni) la urma
   (setq chei_chenare nil)
   (foreach def definitii_etrier
     (setq nr_sect nil sect_ch nil)
@@ -519,8 +525,8 @@
               (setq nr_sect (atoi (vl-string-trim " " (cadr txt2)))))))))
     (setq chei_chenare
       (cons (cons (car def)
-                  (list (cond ((and nr_sect (> nr_sect 0)) 0) (sect_ch 1) (T 2))
-                        (if nr_sect nr_sect 0)
+                  (list (cond ((nth 5 def) 0) ((and nr_sect (> nr_sect 0)) 1) (sect_ch 2) (T 3))
+                        (cond ((nth 5 def) (- (atof (nth 3 def)))) (nr_sect nr_sect) (T 0))
                         (car (cadr def))
                         (- (cadr (cadr def)))))
             chei_chenare)))

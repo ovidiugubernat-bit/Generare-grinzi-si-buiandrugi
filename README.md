@@ -179,6 +179,9 @@ pe desfasurate generate cu versiunea aceasta.
   `RenumeroteazaMarciGrinzi`, marca etrierului centurii din sectiunea unui buiandrug primeste numarul etrierului din
   detaliul centurii; nu mai e nevoie de `Marci otel de corectat`. Legaturile fara definitie sunt semnalate, cu ce anume lipseste. Barele drepte ale centurilor (grup cu `... buc.` pe
   `Bucati etrieri centuri`) primesc numar si daca nu sunt intr-un `Chenar pentru armatura`.
+- Ordinea la `RenumeroteazaMarciGrinzi`: barele lungi (G.., GP.., B..), barele drepte ale centurilor, apoi etrierii
+  centurilor de la cel mai mare la cel mai mic (centura de 30, apoi cea de 25), apoi etrierii din sectiunile grinzilor si
+  buiandrugilor (1-1, 2-2 ...). Un etrier de grinda identic cu al unei centuri primeste numarul centurii.
 - `ExtrasGrinzi`: un `Chenar etrieri` fara marca isi afla marca din numerele sectiunilor din el (ca la renumerotare),
   deci grupul cerc+marca de pe desfasurata nu mai e obligatoriu. Avertismente noi: etrieri nenumarati (fara marca si
   fara sectiune, sau in afara oricarui Chenar etrieri), definitii sau bare care nu ajung in tabel, numere lipsa in sirul
