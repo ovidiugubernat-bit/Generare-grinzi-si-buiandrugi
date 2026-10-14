@@ -901,6 +901,34 @@
   r
 )
 ;; stilul de cota curent (DIMSTYLE nu se poate schimba cu setvar)
+;; stilurile de cotare ale armaturii si ale sectiunilor; daca lipsesc din
+;; desen (alt fisier decat cel in care au fost facute), se creeaza din
+;; "Centimetri 50", cu valorile lor - altfel cotele s-ar pune cu stilul curent
+;; si ar iesi gresite (sectiunile sunt marite de 2.5 ori: DIMLFAC 0.04)
+;; (nume DIMTXT DIMASZ DIMLFAC)
+(defun gb:asigura-stiluri ( / cur lst noi och)
+  (setq lst (list (list gb:*ds-fier* 100.0 0.0 0.1)
+                  (list gb:*ds-20* 120.0 80.0 0.04)
+                  (list gb:*ds-etr* 120.0 80.0 0.04)))
+  (if (vl-some '(lambda (x) (not (tblsearch "DIMSTYLE" (car x)))) lst)
+    (progn
+      (setq cur (getvar "DIMSTYLE") och (getvar "CMDECHO"))
+      (setvar "CMDECHO" 0)
+      (foreach x lst
+        (if (not (tblsearch "DIMSTYLE" (car x)))
+          (progn
+            (if (tblsearch "DIMSTYLE" "Centimetri 50") (command "_.-DIMSTYLE" "_Restore" "Centimetri 50"))
+            (setvar "DIMTXT" (cadr x)) (setvar "DIMASZ" (caddr x)) (setvar "DIMLFAC" (cadddr x))
+            (setvar "DIMDEC" 0) (setvar "DIMTAD" 1) (setvar "DIMTIX" 1) (setvar "DIMGAP" 50.0)
+            (command "_.-DIMSTYLE" "_Save" (car x))
+            (setq noi (cons (car x) noi)))))
+      (if (tblsearch "DIMSTYLE" cur) (command "_.-DIMSTYLE" "_Restore" cur))
+      (setvar "CMDECHO" och)
+      (if noi (princ (strcat "\n(Am creat stilurile de cotare lipsa: "
+                             (apply 'strcat (cdr (apply 'append (mapcar '(lambda (n) (list ", " n)) (reverse noi)))))
+                             ")")))))
+)
+
 (defun gb:stil-cota (doc nume)
   (if (tblsearch "DIMSTYLE" nume)
     (vl-catch-all-apply 'vla-put-activedimstyle (list doc (vla-item (vla-get-dimstyles doc) nume))))
@@ -1482,6 +1510,7 @@
           (if p
             (progn
               (vla-startundomark doc)
+              (gb:asigura-stiluri)
               (setq ds0 (getvar "DIMSTYLE"))
               (gb:stil-cota doc gb:*ds*)
               (gb:straturi)
@@ -2176,6 +2205,7 @@
           (if (setq p (getpoint "\nColtul stanga-sus al primului chenar de sectiuni: "))
             (progn
               (vla-startundomark doc)
+              (gb:asigura-stiluri)
               (setq ds0 (getvar "DIMSTYLE"))
               (gb:straturi)
               (setq p (trans p 1 0) px (car p) py (cadr p))

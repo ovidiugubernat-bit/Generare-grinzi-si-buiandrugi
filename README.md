@@ -27,6 +27,9 @@ in acelasi folder).
 
 Toata generarea se anuleaza cu un singur `U`.
 
+Stilurile de cotare `Fier stalpi 50`, `Centimetrii sc 1la20` si `etrier 20 marit` (armatura, sectiunile si
+etrierii la 1:20) se creeaza singure din `Centimetri 50` daca lipsesc din desen.
+
 ## Ce citeste din plan
 
 - **Markers**: numele elementelor: `G1 30x40` = grinda, `B2 30x55` = buiandrug (latime x inaltime, in cm).
