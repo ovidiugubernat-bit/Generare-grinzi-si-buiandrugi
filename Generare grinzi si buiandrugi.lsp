@@ -166,6 +166,7 @@
 )
 
 ;; numele unui element: "G1 30x40" -> ("G" 1 300.0 400.0 "G1 30x40"), altfel nil
+;; (dupa inaltime poate urma un text, ex. "G2 30x45 (intoarsa)"; numele ramane intreg)
 (defun gb:nume (s / tip i c num b h n)
   (setq s (vl-string-trim " \t" s))
   (while (vl-string-search "  " s) (setq s (vl-string-subst " " "  " s)))
@@ -181,7 +182,8 @@
             (progn
               (setq i (1+ i))
               (while (and (<= i n) (wcmatch (setq c (substr s i 1)) "#")) (setq h (strcat h c) i (1+ i)))
-              (if (and (/= h "") (> i n))
+              ;; dupa inaltime poate urma o precizare: "G2 30x45 (intoarsa)"
+              (if (and (/= h "") (or (> i n) (= (substr s i 1) " ")))
                 (list tip (atoi num) (* 10.0 (atoi b)) (* 10.0 (atoi h)) s)))))))
   )
 )
