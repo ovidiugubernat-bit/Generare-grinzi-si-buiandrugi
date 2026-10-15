@@ -100,7 +100,7 @@
 ;; =========================================================================
 ;; ORDINEA DE NUMEROTARE (nu mai depinde de pozitia din desen)
 ;;  1. bare lungi, chenar cu chenar, dupa NUMELE grinzii scris in
-;;     "Chenar pentru armatura": G1, G2 ... (GP7, GP8 continua sirul G),
+;;     "Chenar pentru armatura": G1, G2 ... (GF.. ca G; GP7, GP8 continua sirul G),
 ;;     apoi B1, B2 ..., apoi chenarele fara nume G/B (ex fierul lung al
 ;;     centurilor, 4%%C12 L=12.00m), de la stanga la dreapta
 ;;  2. etrieri, dupa sectiunea lor: 1-1, 2-2, 3-3 ...
@@ -130,11 +130,13 @@
 )
 
 ;; numele grinzii -> (categorie numar subcategorie), sau nil
-;; G1..Gn si GP.. -> categoria 0; B1..Bn -> categoria 1
+;; G1..Gn, GF.. si GP.. -> categoria 0; B1..Bn -> categoria 1
 (defun rmk:nume-grinda (str)
   (setq str (strcase (rmk:text-curat str)))
   (cond
     ( (wcmatch str "GP#*") (list 0 (atoi (substr str 3)) 1))
+    ;; GF = grinda de fundare, in sirul grinzilor
+    ( (wcmatch str "GF#*") (list 0 (atoi (substr str 3)) 0))
     ( (wcmatch str "G#*")  (list 0 (atoi (substr str 2)) 0))
     ( (wcmatch str "B#*")  (list 1 (atoi (substr str 2)) 0))
   )

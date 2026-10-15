@@ -175,12 +175,14 @@
 )
 
 ;; numele unui element: "G1 30x40" -> ("G" 1 300.0 400.0 "G1 30x40"), altfel nil
-(defun gb:nume (s / tip i c num b h n)
+(defun gb:nume (s / tip i c num b h n pref)
   (setq s (vl-string-trim " \t" s))
   (while (vl-string-search "  " s) (setq s (vl-string-subst " " "  " s)))
   (setq tip (strcase (substr s 1 1)) i 2 num "" b "" h "" n (strlen s))
   ;; GP = grinda in placa
   (if (= (strcase (substr s 1 2)) "GP") (setq tip "GP" i 3))
+  ;; GF = grinda de fundare: se desfasoara ca o grinda (G), numele ramane GF..
+  (if (= (strcase (substr s 1 2)) "GF") (setq tip "G" i 3 pref "GF"))
   (if (member tip '("G" "GP" "B" "C"))
     (progn
       (while (and (<= i n) (wcmatch (setq c (substr s i 1)) "#")) (setq num (strcat num c) i (1+ i)))
@@ -195,7 +197,7 @@
               ;; dupa dimensiuni poate urma, dupa un spatiu, un text pentru
               ;; santier, ex "G5 30x40 (intoarsa)" - ramane in nume si in titlu
               (if (and (/= h "") (or (> i n) (= (substr s i 1) " ")))
-                (list tip (atoi num) (* 10.0 (atoi b)) (* 10.0 (atoi h)) s)))))))
+                (list tip (atoi num) (* 10.0 (atoi b)) (* 10.0 (atoi h)) s pref)))))))
   )
 )
 
@@ -275,7 +277,7 @@
        (setq rot (rem (cdr (assoc 50 ed)) pi))
        (setq dr (if (or (< rot (/ pi 4.0)) (> rot (* 0.75 pi))) 0 1))
        (setq gb:*mk* (cons (list (cons 'tip (nth 0 nm)) (cons 'num (nth 1 nm)) (cons 'b (nth 2 nm))
-                                 (cons 'id (strcat (nth 0 nm) (itoa (nth 1 nm))))
+                                 (cons 'id (strcat (cond ((nth 5 nm)) ((nth 0 nm))) (itoa (nth 1 nm))))
                                  (cons 'h (nth 3 nm)) (cons 'name (nth 4 nm))
                                  (cons 'p (list (car p) (cadr p))) (cons 'dir dr))
                            gb:*mk*)))

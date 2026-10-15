@@ -32,7 +32,7 @@ etrierii la 1:20) se creeaza singure din `Centimetri 50` daca lipsesc din desen.
 
 ## Ce citeste din plan
 
-- **Markers**: numele elementelor: `G1 30x40` = grinda, `GP5 25x15` = grinda in placa, `B2 30x55` = buiandrug (latime x inaltime, in cm). Dupa dimensiuni poate urma,
+- **Markers**: numele elementelor: `G1 30x40` = grinda, `GF1 30x50` = grinda de fundare (se desfasoara ca o grinda), `GP5 25x15` = grinda in placa, `B2 30x55` = buiandrug (latime x inaltime, in cm). Dupa dimensiuni poate urma,
   dupa un spatiu, un text pentru santier (ex. `G5 30x40 (intoarsa)`): ramane in nume si in titlul desfasuratei.
   `C1 30x25` (centuri) servesc ca reazem si la numararea etrierilor centurilor; `BP ...` (buiandrugi porotherm) se ignora.
 - **Grinzi**: cele doua linii ale fiecarei grinzi / fiecarui buiandrug (linii sau polilinii, ortogonale).
