@@ -77,11 +77,12 @@
 (setq gb:*cioc-b*   300.0)     ; ciocurile barelor la buiandrugi (mm)
 ;; grinzi in placa (GP): inalte cat placa, 3%%C14 sus si jos, etrieri la 15 cm
 ;; pe toata lungimea; reazemele (centuri, grinzi, stalpi) figurate cu un
-;; dreptunghi hasurat de 10 cm sub ea; barele cu ciocuri pe inaltimea carcasei
+;; dreptunghi hasurat de 10 cm sub ea; barele cu ciocuri de 10 cm
 (setq gb:*arm-gp*   "3%%C14")
 (setq gb:*h-rez-gp* 100.0)     ; inaltimea desenata a reazemelor (mm)
 (setq gb:*y-gp-sus* 930.0)     ; bara de sus sub fata de jos (mm)
 (setq gb:*y-gp-jos* 1370.0)    ; bara de jos sub fata de jos (mm)
+(setq gb:*cioc-gp*  100.0)     ; ciocurile barelor grinzilor in placa: mereu 10 cm
 ;; randurile barelor de grinda sub fata de jos: sus la 1085 (ciocuri in jos),
 ;; jos cu 9 cm intre ciocuri (1085 + 250 + 90 + 250), al doilea rand de jos
 ;; (sectiune variabila) inca 330 mai jos
@@ -901,6 +902,69 @@
   r
 )
 ;; stilul de cota curent (DIMSTYLE nu se poate schimba cu setvar)
+;; ---- stilurile desenului -------------------------------------------------
+;; Daca un desen nu are stilurile de care e nevoie (de exemplu dupa un PURGE),
+;; se creeaza, cu setarile din desenele obisnuite - altfel textele si cotele
+;; s-ar pune cu stilul curent si ar iesi gresite. Ce exista nu se atinge.
+
+(defun gb:fa-stil-text (nume font)
+  (if (not (tblsearch "STYLE" nume))
+    (progn
+      (entmake (list '(0 . "STYLE") '(100 . "AcDbSymbolTableRecord") '(100 . "AcDbTextStyleTableRecord")
+                     (cons 2 nume) '(70 . 0) '(40 . 0.0) '(41 . 1.0) '(50 . 0.0) '(71 . 0) '(42 . 2.5)
+                     (cons 3 font) '(4 . "")))
+      (princ (strcat "\n(Am creat stilul de text lipsa \"" nume "\".)"))))
+)
+
+;; baza: stilul de la care se porneste (daca exista); vars: ((variabila . valoare) ...)
+(defun gb:fa-stil-cota (nume baza vars / cur och)
+  (if (not (tblsearch "DIMSTYLE" nume))
+    (progn
+      (setq cur (getvar "DIMSTYLE") och (getvar "CMDECHO"))
+      (setvar "CMDECHO" 0)
+      (if (and baza (tblsearch "DIMSTYLE" baza)) (command "_.-DIMSTYLE" "_Restore" baza))
+      (foreach v vars (vl-catch-all-apply 'setvar (list (car v) (cdr v))))
+      (command "_.-DIMSTYLE" "_Save" nume)
+      (if (tblsearch "DIMSTYLE" cur) (command "_.-DIMSTYLE" "_Restore" cur))
+      (setvar "CMDECHO" och)
+      (princ (strcat "\n(Am creat stilul de cotare lipsa \"" nume "\".)"))))
+)
+
+;; "Centimetri 50" si "Centimetri 50 cu virgula": desen in mm, cote in cm
+(defun gb:stiluri-cm50 ( / v)
+  (gb:fa-stil-text "WMF-Times New Roman0" "times.ttf")
+  (setq v (list '("DIMSCALE" . 1.0) '("DIMLFAC" . 0.1) '("DIMTXT" . 120.0) '("DIMASZ" . 80.0)
+                '("DIMGAP" . 50.0) '("DIMEXO" . 1.0) '("DIMEXE" . 1.0) '("DIMDLI" . 10.0)
+                '("DIMTAD" . 1) '("DIMTIH" . 0) '("DIMTOH" . 0) '("DIMTIX" . 1) '("DIMTOFL" . 1)
+                '("DIMSE1" . 1) '("DIMSE2" . 1) '("DIMSD1" . 0) '("DIMSD2" . 0)
+                '("DIMZIN" . 8) '("DIMDEC" . 0) '("DIMCEN" . 40.0)
+                '("DIMCLRD" . 256) '("DIMCLRE" . 256) '("DIMCLRT" . 256)
+                '("DIMBLK" . "_ArchTick") '("DIMTXSTY" . "WMF-Times New Roman0")))
+  (gb:fa-stil-cota "Centimetri 50" nil v)
+  (gb:fa-stil-cota "Centimetri 50 cu virgula" "Centimetri 50"
+               (append v (list '("DIMZIN" . 12) '("DIMDEC" . 1) '("DIMCEN" . 0.0))))
+)
+
+;; toate stilurile folosite la generare si la sectiuni; cele ale armaturii si
+;; ale sectiunilor se fac din "Centimetri 50" (sectiunile sunt marite de 2.5
+;; ori: DIMLFAC 0.04)
+(defun gb:asigura-stiluri ( )
+  (gb:stiluri-cm50)
+  (gb:fa-stil-text "cezar" "times.ttf")
+  (gb:fa-stil-text "Roman Triplex" "romant.shx")
+;; valorile din desenele de lucru; la armatura si la etrierul desfasurat
+  ;; linia de cota e ascunsa (DIMSD1/DIMSD2), se vede doar cifra
+  (gb:fa-stil-cota gb:*ds-fier* "Centimetri 50"
+                   '(("DIMTXT" . 100.0) ("DIMASZ" . 0.0) ("DIMLFAC" . 0.1) ("DIMDEC" . 0)
+                     ("DIMSD1" . 1) ("DIMSD2" . 1)))
+  (gb:fa-stil-cota gb:*ds-20*   "Centimetri 50"
+                   '(("DIMTXT" . 120.0) ("DIMASZ" . 80.0) ("DIMLFAC" . 0.04) ("DIMDEC" . 0)
+                     ("DIMDLI" . 200.0) ("DIMCEN" . 0.0)))
+  (gb:fa-stil-cota gb:*ds-etr*  "Centimetri 50"
+                   '(("DIMTXT" . 120.0) ("DIMASZ" . 80.0) ("DIMLFAC" . 0.04) ("DIMDEC" . 0)
+                     ("DIMDLI" . 200.0) ("DIMCEN" . 0.0) ("DIMSD1" . 1) ("DIMSD2" . 1)))
+)
+
 (defun gb:stil-cota (doc nume)
   (if (tblsearch "DIMSTYLE" nume)
     (vl-catch-all-apply 'vla-put-activedimstyle (list doc (vla-item (vla-get-dimstyles doc) nume))))
@@ -1294,10 +1358,10 @@
   ;; centrul cercului marcii: eticheta (cerc, diametru, L=) centrata pe bara
   (setq cu (+ ox (/ lt 2.0) -200.0))
   (cond
-   ;; grinda in placa: 3%%C14 sus si jos, ciocuri pe inaltimea carcasei
+   ;; grinda in placa: 3%%C14 sus si jos, ciocuri de 10 cm (nu inaltimea carcasei)
    (gp
-    (gb:armatura doc ms (+ ox gb:*acop*) (+ ox lt (- gb:*acop*)) (- yb gb:*y-gp-sus*) (- (+ h (* -2.0 gb:*acop*))) gb:*arm-gp* cu)
-    (gb:armatura doc ms (+ ox gb:*acop*) (+ ox lt (- gb:*acop*)) (- yb gb:*y-gp-jos*) (- h (* 2.0 gb:*acop*)) gb:*arm-gp* cu))
+    (gb:armatura doc ms (+ ox gb:*acop*) (+ ox lt (- gb:*acop*)) (- yb gb:*y-gp-sus*) (- gb:*cioc-gp*) gb:*arm-gp* cu)
+    (gb:armatura doc ms (+ ox gb:*acop*) (+ ox lt (- gb:*acop*)) (- yb gb:*y-gp-jos*) gb:*cioc-gp* gb:*arm-gp* cu))
    ((= (gb:g 'tip e) "G")
     (progn
       ;; sus: continua
@@ -1482,6 +1546,7 @@
           (if p
             (progn
               (vla-startundomark doc)
+              (gb:asigura-stiluri)
               (setq ds0 (getvar "DIMSTYLE"))
               (gb:stil-cota doc gb:*ds*)
               (gb:straturi)
@@ -2176,6 +2241,7 @@
           (if (setq p (getpoint "\nColtul stanga-sus al primului chenar de sectiuni: "))
             (progn
               (vla-startundomark doc)
+              (gb:asigura-stiluri)
               (setq ds0 (getvar "DIMSTYLE"))
               (gb:straturi)
               (setq p (trans p 1 0) px (car p) py (cadr p))
